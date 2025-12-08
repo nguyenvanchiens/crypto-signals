@@ -199,7 +199,7 @@ class SignalEngine {
     const currentPrice = closes[closes.length - 1];
     const latestIndicators = this.getLatestIndicators(indicators);
     const analysis = this.analyzeIndicators(latestIndicators, currentPrice);
-    const signal = this.generateSignal(analysis, currentPrice, indicators);
+    const signal = this.generateSignal(analysis, currentPrice, indicators, latestIndicators);
 
     return {
       timestamp: new Date().toISOString(),
@@ -293,9 +293,9 @@ class SignalEngine {
     return { totalScore, strength: Math.abs(totalScore) >= 5 ? 'STRONG' : Math.abs(totalScore) >= 3 ? 'MODERATE' : 'WEAK' };
   }
 
-  generateSignal(analysis, currentPrice, indicators) {
+  generateSignal(analysis, currentPrice, indicators, latestIndicators) {
     const { totalScore, strength } = analysis;
-    const atr = this.getLatestIndicators(indicators).atr;
+    const atr = latestIndicators.atr;
 
     let action = 'WAIT';
     let stopLoss = null;
@@ -327,6 +327,24 @@ class SignalEngine {
       suggestedLeverage = Math.min(Math.max(Math.floor(targetRisk / riskPercent), 5), 50);
     }
 
+    // Generate reasons
+    const reasons = [];
+    if (action === 'LONG') {
+      if (totalScore >= 5) reasons.push('🔥 Tín hiệu LONG RẤT MẠNH');
+      else if (totalScore >= 3) reasons.push('✅ Tín hiệu LONG khá tốt');
+      reasons.push(`RSI: ${latestIndicators.rsi?.current?.toFixed(1) || 'N/A'}`);
+      reasons.push(`MACD Histogram: ${latestIndicators.macd?.histogram?.toFixed(4) || 'N/A'}`);
+      reasons.push(`💡 Đòn bẩy khuyến nghị: ${suggestedLeverage}x`);
+    } else if (action === 'SHORT') {
+      if (totalScore <= -5) reasons.push('🔥 Tín hiệu SHORT RẤT MẠNH');
+      else if (totalScore <= -3) reasons.push('✅ Tín hiệu SHORT khá tốt');
+      reasons.push(`RSI: ${latestIndicators.rsi?.current?.toFixed(1) || 'N/A'}`);
+      reasons.push(`MACD Histogram: ${latestIndicators.macd?.histogram?.toFixed(4) || 'N/A'}`);
+      reasons.push(`💡 Đòn bẩy khuyến nghị: ${suggestedLeverage}x`);
+    } else {
+      reasons.push('Thị trường sideway - các chỉ báo cân bằng');
+    }
+
     return {
       action,
       confidence: confidence.toFixed(1) + '%',
@@ -334,10 +352,11 @@ class SignalEngine {
       entry: currentPrice,
       stopLoss: stopLoss?.toFixed(2),
       takeProfit: takeProfit?.toFixed(2),
-      riskPercent: riskPercent?.toFixed(2) + '%',
-      rewardPercent: rewardPercent?.toFixed(2) + '%',
+      riskPercent: riskPercent ? riskPercent.toFixed(2) + '%' : null,
+      rewardPercent: rewardPercent ? rewardPercent.toFixed(2) + '%' : null,
       leverage: suggestedLeverage,
-      totalScore
+      totalScore,
+      reasons
     };
   }
 }
@@ -346,7 +365,16 @@ class SignalEngine {
 async function fetchBinanceKlines(symbol, interval = '1h', limit = 100) {
   const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=${limit}`;
   const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Binance API error: ${response.status}`);
+  }
+
   const data = await response.json();
+
+  if (data.code && data.msg) {
+    throw new Error(`Binance: ${data.msg}`);
+  }
 
   return data.map(candle => ({
     symbol,
