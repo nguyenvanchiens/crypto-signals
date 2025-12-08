@@ -764,6 +764,439 @@
   <script>
     const API_BASE = '';
 
+    // Detect if running on Cloudflare Workers (not localhost)
+    const IS_CLOUDFLARE = !window.location.hostname.includes('localhost') &&
+                          !window.location.hostname.includes('127.0.0.1') &&
+                          !window.location.hostname.match(/^192\.168\./);
+
+    // ===================== CLIENT-SIDE BINANCE API & SIGNAL ENGINE =====================
+    // Used when running on Cloudflare (because Binance blocks Cloudflare IPs)
+
+    const BINANCE_FUTURES_API = 'https://fapi.binance.com';
+
+    // Fetch klines directly from Binance
+    async function fetchBinanceKlines(symbol, interval, limit = 100) {
+      const url = `${BINANCE_FUTURES_API}/fapi/v1/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=${limit}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Binance API error: ${response.status}`);
+      const data = await response.json();
+      return data.map(k => ({
+        openTime: k[0],
+        open: parseFloat(k[1]),
+        high: parseFloat(k[2]),
+        low: parseFloat(k[3]),
+        close: parseFloat(k[4]),
+        volume: parseFloat(k[5]),
+        closeTime: k[6]
+      }));
+    }
+
+    // Fetch current price from Binance
+    async function fetchBinancePrice(symbol) {
+      const url = `${BINANCE_FUTURES_API}/fapi/v1/ticker/price?symbol=${symbol.toUpperCase()}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Binance API error: ${response.status}`);
+      const data = await response.json();
+      return { symbol: data.symbol, price: parseFloat(data.price) };
+    }
+
+    // ===================== CLIENT-SIDE TECHNICAL INDICATORS =====================
+
+    class ClientTechnicalIndicators {
+      // Simple Moving Average
+      static SMA(data, period) {
+        const result = [];
+        for (let i = 0; i < data.length; i++) {
+          if (i < period - 1) {
+            result.push(null);
+          } else {
+            const sum = data.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0);
+            result.push(sum / period);
+          }
+        }
+        return result;
+      }
+
+      // Exponential Moving Average
+      static EMA(data, period) {
+        const result = [];
+        const multiplier = 2 / (period + 1);
+        let ema = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
+        for (let i = 0; i < data.length; i++) {
+          if (i < period - 1) {
+            result.push(null);
+          } else if (i === period - 1) {
+            result.push(ema);
+          } else {
+            ema = (data[i] - ema) * multiplier + ema;
+            result.push(ema);
+          }
+        }
+        return result;
+      }
+
+      // RSI
+      static RSI(closes, period = 14) {
+        const changes = [];
+        for (let i = 1; i < closes.length; i++) {
+          changes.push(closes[i] - closes[i - 1]);
+        }
+
+        const gains = changes.map(c => c > 0 ? c : 0);
+        const losses = changes.map(c => c < 0 ? Math.abs(c) : 0);
+
+        const result = [];
+        let avgGain = gains.slice(0, period).reduce((a, b) => a + b, 0) / period;
+        let avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
+
+        for (let i = 0; i < closes.length; i++) {
+          if (i < period) {
+            result.push(null);
+          } else if (i === period) {
+            const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+            result.push(100 - (100 / (1 + rs)));
+          } else {
+            avgGain = (avgGain * (period - 1) + gains[i - 1]) / period;
+            avgLoss = (avgLoss * (period - 1) + losses[i - 1]) / period;
+            const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+            result.push(100 - (100 / (1 + rs)));
+          }
+        }
+        return result;
+      }
+
+      // MACD
+      static MACD(closes, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
+        const emaFast = this.EMA(closes, fastPeriod);
+        const emaSlow = this.EMA(closes, slowPeriod);
+
+        const macdLine = emaFast.map((fast, i) => {
+          if (fast === null || emaSlow[i] === null) return null;
+          return fast - emaSlow[i];
+        });
+
+        const validMacd = macdLine.filter(v => v !== null);
+        const signalLine = this.EMA(validMacd, signalPeriod);
+
+        const result = { macd: [], signal: [], histogram: [] };
+        let signalIndex = 0;
+
+        for (let i = 0; i < macdLine.length; i++) {
+          if (macdLine[i] === null) {
+            result.macd.push(null);
+            result.signal.push(null);
+            result.histogram.push(null);
+          } else {
+            result.macd.push(macdLine[i]);
+            const sig = signalLine[signalIndex] || null;
+            result.signal.push(sig);
+            result.histogram.push(sig !== null ? macdLine[i] - sig : null);
+            signalIndex++;
+          }
+        }
+        return result;
+      }
+
+      // Bollinger Bands
+      static BollingerBands(closes, period = 20, stdDev = 2) {
+        const sma = this.SMA(closes, period);
+        const result = { upper: [], middle: [], lower: [] };
+
+        for (let i = 0; i < closes.length; i++) {
+          if (sma[i] === null) {
+            result.upper.push(null);
+            result.middle.push(null);
+            result.lower.push(null);
+          } else {
+            const slice = closes.slice(i - period + 1, i + 1);
+            const mean = sma[i];
+            const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / period;
+            const std = Math.sqrt(variance);
+
+            result.upper.push(mean + stdDev * std);
+            result.middle.push(mean);
+            result.lower.push(mean - stdDev * std);
+          }
+        }
+        return result;
+      }
+
+      // ATR
+      static ATR(candles, period = 14) {
+        const trueRanges = [];
+        for (let i = 0; i < candles.length; i++) {
+          if (i === 0) {
+            trueRanges.push(candles[i].high - candles[i].low);
+          } else {
+            const tr = Math.max(
+              candles[i].high - candles[i].low,
+              Math.abs(candles[i].high - candles[i - 1].close),
+              Math.abs(candles[i].low - candles[i - 1].close)
+            );
+            trueRanges.push(tr);
+          }
+        }
+        return this.EMA(trueRanges, period);
+      }
+    }
+
+    // ===================== CLIENT-SIDE SIGNAL ENGINE =====================
+
+    class ClientSignalEngine {
+      constructor() {
+        this.config = {
+          rsiPeriod: 14,
+          rsiOversold: 30,
+          rsiOverbought: 70,
+          atrMultiplier: 1.5,
+          riskRewardRatio: 2
+        };
+      }
+
+      analyze(candles) {
+        const closes = candles.map(c => c.close);
+        const highs = candles.map(c => c.high);
+        const lows = candles.map(c => c.low);
+        const currentPrice = closes[closes.length - 1];
+
+        // Calculate indicators
+        const rsi = ClientTechnicalIndicators.RSI(closes, 14);
+        const macd = ClientTechnicalIndicators.MACD(closes);
+        const ema9 = ClientTechnicalIndicators.EMA(closes, 9);
+        const ema21 = ClientTechnicalIndicators.EMA(closes, 21);
+        const ema50 = ClientTechnicalIndicators.EMA(closes, 50);
+        const bb = ClientTechnicalIndicators.BollingerBands(closes);
+        const atr = ClientTechnicalIndicators.ATR(candles, 14);
+
+        const latestIndicators = {
+          rsi: rsi[rsi.length - 1],
+          macd: macd.macd[macd.macd.length - 1],
+          macdSignal: macd.signal[macd.signal.length - 1],
+          macdHistogram: macd.histogram[macd.histogram.length - 1],
+          ema9: ema9[ema9.length - 1],
+          ema21: ema21[ema21.length - 1],
+          ema50: ema50[ema50.length - 1],
+          bbUpper: bb.upper[bb.upper.length - 1],
+          bbMiddle: bb.middle[bb.middle.length - 1],
+          bbLower: bb.lower[bb.lower.length - 1],
+          atr: atr[atr.length - 1]
+        };
+
+        // Analyze each indicator
+        const analysis = {
+          rsi: this.analyzeRSI(latestIndicators.rsi),
+          macd: this.analyzeMACD(latestIndicators),
+          ema: this.analyzeEMA(latestIndicators, currentPrice),
+          bb: this.analyzeBB(latestIndicators, currentPrice),
+          trend: this.analyzeTrend(latestIndicators, currentPrice)
+        };
+
+        // Calculate total score
+        const scores = Object.values(analysis).map(a => a.score);
+        const totalScore = scores.reduce((a, b) => a + b, 0);
+        const avgScore = (totalScore / scores.length).toFixed(2);
+
+        let strength = 'YẾU';
+        if (Math.abs(totalScore) >= 4) strength = 'MẠNH';
+        else if (Math.abs(totalScore) >= 2) strength = 'TRUNG BÌNH';
+
+        // Generate signal
+        const signal = this.generateSignal({ totalScore, strength }, currentPrice, latestIndicators);
+
+        return {
+          currentPrice,
+          indicators: {
+            rsi: { current: latestIndicators.rsi, period: 14 },
+            macd: {
+              macd: latestIndicators.macd,
+              signal: latestIndicators.macdSignal,
+              histogram: latestIndicators.macdHistogram
+            },
+            ema: { ema9: latestIndicators.ema9, ema21: latestIndicators.ema21, ema50: latestIndicators.ema50 },
+            bollingerBands: { upper: latestIndicators.bbUpper, middle: latestIndicators.bbMiddle, lower: latestIndicators.bbLower },
+            atr: { current: latestIndicators.atr, period: 14 }
+          },
+          analysis,
+          signal
+        };
+      }
+
+      analyzeRSI(rsi) {
+        if (rsi === null) return { score: 0, signal: 'N/A' };
+        if (rsi < 30) return { score: 2, signal: 'Quá bán - Bullish' };
+        if (rsi < 40) return { score: 1, signal: 'Gần quá bán' };
+        if (rsi > 70) return { score: -2, signal: 'Quá mua - Bearish' };
+        if (rsi > 60) return { score: -1, signal: 'Gần quá mua' };
+        return { score: 0, signal: 'Trung tính' };
+      }
+
+      analyzeMACD(indicators) {
+        const { macd, macdSignal, macdHistogram } = indicators;
+        if (macd === null || macdSignal === null) return { score: 0, signal: 'N/A' };
+
+        let score = 0;
+        let signal = '';
+
+        if (macd > macdSignal) {
+          score += 1;
+          signal = 'MACD > Signal';
+        } else {
+          score -= 1;
+          signal = 'MACD < Signal';
+        }
+
+        if (macdHistogram > 0) {
+          score += 1;
+          signal += ' - Histogram dương';
+        } else {
+          score -= 1;
+          signal += ' - Histogram âm';
+        }
+
+        return { score, signal };
+      }
+
+      analyzeEMA(indicators, currentPrice) {
+        const { ema9, ema21, ema50 } = indicators;
+        if (!ema9 || !ema21 || !ema50) return { score: 0, signal: 'N/A' };
+
+        let score = 0;
+        const signals = [];
+
+        if (currentPrice > ema9) { score += 1; signals.push('Giá > EMA9'); }
+        else { score -= 1; signals.push('Giá < EMA9'); }
+
+        if (ema9 > ema21) { score += 1; signals.push('EMA9 > EMA21'); }
+        else { score -= 1; signals.push('EMA9 < EMA21'); }
+
+        if (currentPrice > ema50) { score += 1; signals.push('Giá > EMA50'); }
+        else { score -= 1; signals.push('Giá < EMA50'); }
+
+        return { score, signal: signals.join(', ') };
+      }
+
+      analyzeBB(indicators, currentPrice) {
+        const { bbUpper, bbMiddle, bbLower } = indicators;
+        if (!bbUpper || !bbMiddle || !bbLower) return { score: 0, signal: 'N/A', pricePosition: 50 };
+
+        const range = bbUpper - bbLower;
+        const position = ((currentPrice - bbLower) / range * 100).toFixed(1);
+
+        let score = 0;
+        let signal = '';
+
+        if (currentPrice <= bbLower) {
+          score = 2;
+          signal = 'Chạm band dưới - Oversold';
+        } else if (currentPrice >= bbUpper) {
+          score = -2;
+          signal = 'Chạm band trên - Overbought';
+        } else if (currentPrice < bbMiddle) {
+          score = 1;
+          signal = 'Dưới middle band';
+        } else {
+          score = -1;
+          signal = 'Trên middle band';
+        }
+
+        return { score, signal, pricePosition: position };
+      }
+
+      analyzeTrend(indicators, currentPrice) {
+        const { ema21, ema50 } = indicators;
+        if (!ema21 || !ema50) return { score: 0, signal: 'N/A' };
+
+        if (currentPrice > ema21 && ema21 > ema50) {
+          return { score: 2, signal: 'UPTREND mạnh' };
+        } else if (currentPrice > ema50) {
+          return { score: 1, signal: 'UPTREND' };
+        } else if (currentPrice < ema21 && ema21 < ema50) {
+          return { score: -2, signal: 'DOWNTREND mạnh' };
+        } else if (currentPrice < ema50) {
+          return { score: -1, signal: 'DOWNTREND' };
+        }
+        return { score: 0, signal: 'Sideway' };
+      }
+
+      generateSignal(analysis, currentPrice, latestIndicators) {
+        const { totalScore, strength } = analysis;
+        const atr = latestIndicators.atr;
+        const reasons = [];
+
+        let action = 'WAIT';
+        let confidence = 0;
+
+        if (totalScore >= 3) {
+          action = 'LONG';
+          confidence = Math.min(95, 50 + totalScore * 8);
+          reasons.push(`Tổng điểm ${totalScore} - Xu hướng LONG mạnh`);
+        } else if (totalScore <= -3) {
+          action = 'SHORT';
+          confidence = Math.min(95, 50 + Math.abs(totalScore) * 8);
+          reasons.push(`Tổng điểm ${totalScore} - Xu hướng SHORT mạnh`);
+        } else {
+          reasons.push('Tín hiệu chưa rõ ràng, chờ đợi');
+        }
+
+        // Add indicator reasons
+        if (latestIndicators.rsi < 30) reasons.push('RSI quá bán (< 30)');
+        else if (latestIndicators.rsi > 70) reasons.push('RSI quá mua (> 70)');
+
+        if (latestIndicators.macdHistogram > 0) reasons.push('MACD Histogram dương');
+        else if (latestIndicators.macdHistogram < 0) reasons.push('MACD Histogram âm');
+
+        if (currentPrice > latestIndicators.ema50) reasons.push('Giá trên EMA50 - Uptrend');
+        else reasons.push('Giá dưới EMA50 - Downtrend');
+
+        // Calculate SL/TP
+        const atrMultiplier = this.config.atrMultiplier;
+        const rrRatio = this.config.riskRewardRatio;
+
+        let stopLoss, takeProfit, leverage, leverageRisk;
+
+        if (action === 'LONG') {
+          stopLoss = (currentPrice - atr * atrMultiplier).toFixed(currentPrice > 100 ? 2 : 6);
+          takeProfit = (currentPrice + atr * atrMultiplier * rrRatio).toFixed(currentPrice > 100 ? 2 : 6);
+        } else if (action === 'SHORT') {
+          stopLoss = (currentPrice + atr * atrMultiplier).toFixed(currentPrice > 100 ? 2 : 6);
+          takeProfit = (currentPrice - atr * atrMultiplier * rrRatio).toFixed(currentPrice > 100 ? 2 : 6);
+        }
+
+        // Calculate leverage based on signal strength
+        const slPercent = Math.abs((currentPrice - parseFloat(stopLoss)) / currentPrice * 100);
+        if (slPercent > 5) { leverage = 3; leverageRisk = 'SAFE'; }
+        else if (slPercent > 3) { leverage = 5; leverageRisk = 'LOW'; }
+        else if (slPercent > 2) { leverage = 10; leverageRisk = 'MEDIUM'; }
+        else { leverage = 20; leverageRisk = 'HIGH'; }
+
+        // Adjust leverage based on confidence
+        if (confidence < 60) leverage = Math.max(3, Math.floor(leverage * 0.5));
+
+        const atrPercent = ((atr / currentPrice) * 100).toFixed(2);
+
+        return {
+          action,
+          confidence: confidence + '%',
+          totalScore,
+          averageScore: (totalScore / 5).toFixed(2),
+          strength,
+          entry: currentPrice,
+          stopLoss,
+          takeProfit,
+          riskPercent: `-${slPercent.toFixed(2)}%`,
+          rewardPercent: `+${(slPercent * rrRatio).toFixed(2)}%`,
+          riskReward: rrRatio,
+          leverage,
+          leverageRisk,
+          atr: atr ? atr.toFixed(currentPrice > 100 ? 2 : 6) : 'N/A',
+          atrPercent: atrPercent + '%',
+          reasons
+        };
+      }
+    }
+
+    const clientSignalEngine = new ClientSignalEngine();
+
     // Danh sách tất cả coin trên Binance Futures (150+ coins)
     const ALL_SYMBOLS = [
       // Top coins
@@ -900,8 +1333,22 @@
       resultDiv.innerHTML = '<div class="loading">Đang phân tích</div>';
 
       try {
-        const response = await fetch(`${API_BASE}/api/signal/${symbol}?interval=${interval}&market=${market}`);
-        const data = await response.json();
+        let data;
+
+        if (IS_CLOUDFLARE) {
+          // Client-side analysis for Cloudflare (bypass Binance IP block)
+          console.log('[Cloudflare Mode] Fetching directly from Binance...');
+          const candles = await fetchBinanceKlines(symbol, interval, 100);
+          const result = clientSignalEngine.analyze(candles);
+          result.symbol = symbol.toUpperCase();
+          result.interval = interval;
+          result.market = market;
+          data = { success: true, data: result };
+        } else {
+          // Server-side analysis for local/VPS
+          const response = await fetch(`${API_BASE}/api/signal/${symbol}?interval=${interval}&market=${market}`);
+          data = await response.json();
+        }
 
         if (data.success) {
           renderSignal(data.data);
@@ -1087,8 +1534,35 @@
       resultDiv.innerHTML = '<div class="loading">Đang quét tín hiệu</div>';
 
       try {
-        const response = await fetch(`${API_BASE}/api/signals?interval=${interval}`);
-        const data = await response.json();
+        let data;
+
+        if (IS_CLOUDFLARE) {
+          // Client-side scan for Cloudflare
+          console.log('[Cloudflare Mode] Scanning symbols from browser...');
+          const topSymbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT'];
+          const results = [];
+
+          for (const symbol of topSymbols) {
+            try {
+              const candles = await fetchBinanceKlines(symbol, interval, 100);
+              const result = clientSignalEngine.analyze(candles);
+              result.symbol = symbol;
+              result.interval = interval;
+              results.push(result);
+              // Small delay to avoid rate limit
+              await new Promise(resolve => setTimeout(resolve, 100));
+            } catch (err) {
+              console.error(`Error scanning ${symbol}:`, err);
+              results.push({ symbol, error: err.message });
+            }
+          }
+
+          data = { success: true, data: results };
+        } else {
+          // Server-side scan for local/VPS
+          const response = await fetch(`${API_BASE}/api/signals?interval=${interval}`);
+          data = await response.json();
+        }
 
         if (data.success) {
           renderMultiSignals(data.data);
@@ -1467,11 +1941,20 @@
 
       for (const position of openPositions) {
         try {
-          const response = await fetch(`${API_BASE}/api/price/${position.symbol}?market=futures`);
-          const data = await response.json();
+          let currentPrice;
 
-          if (data.success) {
-            const currentPrice = data.data.price;
+          if (IS_CLOUDFLARE) {
+            // Fetch price directly from Binance for Cloudflare
+            const priceData = await fetchBinancePrice(position.symbol);
+            currentPrice = priceData.price;
+          } else {
+            const response = await fetch(`${API_BASE}/api/price/${position.symbol}?market=futures`);
+            const data = await response.json();
+            if (!data.success) continue;
+            currentPrice = data.data.price;
+          }
+
+          if (currentPrice) {
             let pnl;
 
             if (position.type === 'LONG') {
@@ -1513,12 +1996,21 @@
     setInterval(async () => {
       const symbol = document.getElementById('symbol').value;
       try {
-        const response = await fetch(`${API_BASE}/api/price/${symbol}`);
-        const data = await response.json();
-        if (data.success) {
+        let price;
+
+        if (IS_CLOUDFLARE) {
+          const priceData = await fetchBinancePrice(symbol);
+          price = priceData.price;
+        } else {
+          const response = await fetch(`${API_BASE}/api/price/${symbol}`);
+          const data = await response.json();
+          if (data.success) price = data.data.price;
+        }
+
+        if (price) {
           const priceEl = document.querySelector('.price');
           if (priceEl) {
-            priceEl.textContent = '$' + data.data.price.toLocaleString();
+            priceEl.textContent = '$' + price.toLocaleString();
           }
         }
       } catch (e) {}

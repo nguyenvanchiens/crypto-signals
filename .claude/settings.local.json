@@ -10,7 +10,8 @@
       "Bash(powershell -Command \"Stop-Process -Id 9308 -Force; Stop-Process -Id 21908 -Force\")",
       "Bash(timeout /t)",
       "Bash(powershell -Command \"Stop-Process -Id 116804 -Force; Stop-Process -Id 12228 -Force\")",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(npx wrangler deploy)"
     ],
     "deny": [],
     "ask": []
