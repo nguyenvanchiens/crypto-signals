@@ -1023,11 +1023,11 @@
 
       analyzeRSI(rsi) {
         if (rsi === null) return { score: 0, signal: 'N/A' };
-        if (rsi < 30) return { score: 2, signal: 'Quá bán - Bullish' };
-        if (rsi < 40) return { score: 1, signal: 'Gần quá bán' };
-        if (rsi > 70) return { score: -2, signal: 'Quá mua - Bearish' };
-        if (rsi > 60) return { score: -1, signal: 'Gần quá mua' };
-        return { score: 0, signal: 'Trung tính' };
+        if (rsi < 30) return { score: 2, signal: 'OVERSOLD' };
+        if (rsi < 40) return { score: 1, signal: 'BULLISH' };
+        if (rsi > 70) return { score: -2, signal: 'OVERBOUGHT' };
+        if (rsi > 60) return { score: -1, signal: 'BEARISH' };
+        return { score: 0, signal: 'NEUTRAL' };
       }
 
       analyzeMACD(indicators) {
@@ -1035,23 +1035,15 @@
         if (macd === null || macdSignal === null) return { score: 0, signal: 'N/A' };
 
         let score = 0;
-        let signal = '';
+        if (macd > macdSignal) score += 1;
+        else score -= 1;
 
-        if (macd > macdSignal) {
-          score += 1;
-          signal = 'MACD > Signal';
-        } else {
-          score -= 1;
-          signal = 'MACD < Signal';
-        }
+        if (macdHistogram > 0) score += 1;
+        else score -= 1;
 
-        if (macdHistogram > 0) {
-          score += 1;
-          signal += ' - Histogram dương';
-        } else {
-          score -= 1;
-          signal += ' - Histogram âm';
-        }
+        let signal = 'NEUTRAL';
+        if (score >= 2) signal = 'BULLISH';
+        else if (score <= -2) signal = 'BEARISH';
 
         return { score, signal };
       }
@@ -1061,18 +1053,20 @@
         if (!ema9 || !ema21 || !ema50) return { score: 0, signal: 'N/A' };
 
         let score = 0;
-        const signals = [];
+        if (currentPrice > ema9) score += 1;
+        else score -= 1;
 
-        if (currentPrice > ema9) { score += 1; signals.push('Giá > EMA9'); }
-        else { score -= 1; signals.push('Giá < EMA9'); }
+        if (ema9 > ema21) score += 1;
+        else score -= 1;
 
-        if (ema9 > ema21) { score += 1; signals.push('EMA9 > EMA21'); }
-        else { score -= 1; signals.push('EMA9 < EMA21'); }
+        if (currentPrice > ema50) score += 1;
+        else score -= 1;
 
-        if (currentPrice > ema50) { score += 1; signals.push('Giá > EMA50'); }
-        else { score -= 1; signals.push('Giá < EMA50'); }
+        let signal = 'NEUTRAL';
+        if (score >= 2) signal = 'BULLISH';
+        else if (score <= -2) signal = 'BEARISH';
 
-        return { score, signal: signals.join(', ') };
+        return { score, signal };
       }
 
       analyzeBB(indicators, currentPrice) {
@@ -1083,20 +1077,20 @@
         const position = ((currentPrice - bbLower) / range * 100).toFixed(1);
 
         let score = 0;
-        let signal = '';
+        let signal = 'NEUTRAL';
 
         if (currentPrice <= bbLower) {
           score = 2;
-          signal = 'Chạm band dưới - Oversold';
+          signal = 'OVERSOLD';
         } else if (currentPrice >= bbUpper) {
           score = -2;
-          signal = 'Chạm band trên - Overbought';
+          signal = 'OVERBOUGHT';
         } else if (currentPrice < bbMiddle) {
           score = 1;
-          signal = 'Dưới middle band';
+          signal = 'BULLISH';
         } else {
           score = -1;
-          signal = 'Trên middle band';
+          signal = 'BEARISH';
         }
 
         return { score, signal, pricePosition: position };
@@ -1107,15 +1101,15 @@
         if (!ema21 || !ema50) return { score: 0, signal: 'N/A' };
 
         if (currentPrice > ema21 && ema21 > ema50) {
-          return { score: 2, signal: 'UPTREND mạnh' };
+          return { score: 2, signal: 'STRONG_UPTREND' };
         } else if (currentPrice > ema50) {
           return { score: 1, signal: 'UPTREND' };
         } else if (currentPrice < ema21 && ema21 < ema50) {
-          return { score: -2, signal: 'DOWNTREND mạnh' };
+          return { score: -2, signal: 'STRONG_DOWNTREND' };
         } else if (currentPrice < ema50) {
           return { score: -1, signal: 'DOWNTREND' };
         }
-        return { score: 0, signal: 'Sideway' };
+        return { score: 0, signal: 'SIDEWAY' };
       }
 
       generateSignal(analysis, currentPrice, latestIndicators) {
