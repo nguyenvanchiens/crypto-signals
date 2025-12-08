@@ -1,11 +1,6 @@
-name = "trading-signal-bot"
+name = "crypto-signals"
 main = "src/worker.js"
 compatibility_date = "2024-01-01"
 
-[site]
-bucket = "./public"
-
-# Uncomment nếu cần KV storage
-# [[kv_namespaces]]
-# binding = "CACHE"
-# id = "your-kv-namespace-id"
+# Assets configuration (new way)
+assets = { directory = "./public" }

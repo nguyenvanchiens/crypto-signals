@@ -399,6 +399,12 @@ async function handleRequest(request, env) {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Only handle /api/* routes, let assets handle everything else
+  if (!path.startsWith('/api/')) {
+    // Return null to let Cloudflare Assets serve static files
+    return null;
+  }
+
   const signalEngine = new SignalEngine();
 
   try {
@@ -462,14 +468,8 @@ async function handleRequest(request, env) {
       }), { headers: corsHeaders });
     }
 
-    // Serve static files from /public (handled by wrangler.toml [site])
-    // Root path returns index.html
-    if (path === '/' || path === '/index.html') {
-      return env.ASSETS.fetch(request);
-    }
-
-    // 404
-    return new Response(JSON.stringify({ success: false, error: 'Not found' }), {
+    // 404 for unknown API routes
+    return new Response(JSON.stringify({ success: false, error: 'API endpoint not found' }), {
       status: 404,
       headers: corsHeaders
     });
