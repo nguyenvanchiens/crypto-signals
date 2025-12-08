@@ -2,5 +2,5 @@ name = "crypto-signals"
 main = "src/worker.js"
 compatibility_date = "2024-01-01"
 
-# Assets configuration (new way)
-assets = { directory = "./public" }
+# Static assets binding
+assets = { directory = "./public", binding = "ASSETS" }

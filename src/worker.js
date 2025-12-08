@@ -399,10 +399,14 @@ async function handleRequest(request, env) {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Only handle /api/* routes, let assets handle everything else
+  // Only handle /api/* routes
   if (!path.startsWith('/api/')) {
-    // Return null to let Cloudflare Assets serve static files
-    return null;
+    // Serve static files using env.ASSETS
+    if (env && env.ASSETS) {
+      return env.ASSETS.fetch(request);
+    }
+    // Fallback: return 404
+    return new Response('Not found', { status: 404 });
   }
 
   const signalEngine = new SignalEngine();
