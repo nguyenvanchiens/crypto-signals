@@ -595,6 +595,271 @@
       font-size: 0.9em;
     }
 
+    /* Toast Notification */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      min-width: 320px;
+      max-width: 420px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      background: rgba(26, 26, 46, 0.98);
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      animation: slideIn 0.3s ease-out;
+      backdrop-filter: blur(10px);
+    }
+
+    .toast.success {
+      border-left: 4px solid #00ff88;
+    }
+
+    .toast.error {
+      border-left: 4px solid #ff5252;
+    }
+
+    .toast.info {
+      border-left: 4px solid #00d9ff;
+    }
+
+    .toast-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .toast-icon {
+      font-size: 1.5em;
+    }
+
+    .toast-title {
+      font-weight: bold;
+      font-size: 1.1em;
+      color: #fff;
+    }
+
+    .toast-body {
+      color: #ccc;
+      font-size: 0.95em;
+      line-height: 1.5;
+    }
+
+    .toast-body .detail {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .toast-body .detail:last-child {
+      border-bottom: none;
+    }
+
+    .toast-body .detail .label {
+      color: #888;
+    }
+
+    .toast-body .detail .value {
+      font-weight: 500;
+    }
+
+    .toast-body .value.long {
+      color: #00ff88;
+    }
+
+    .toast-body .value.short {
+      color: #ff5252;
+    }
+
+    .toast-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 1.2em;
+      cursor: pointer;
+      padding: 5px;
+    }
+
+    .toast-close:hover {
+      color: #fff;
+    }
+
+    .toast-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      border-radius: 0 0 0 12px;
+      animation: progress 4s linear forwards;
+    }
+
+    /* Modal Dialog */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .modal {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-radius: 16px;
+      padding: 25px;
+      min-width: 350px;
+      max-width: 450px;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      animation: scaleIn 0.2s ease-out;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .modal-icon {
+      font-size: 2em;
+    }
+
+    .modal-icon.warning { color: #ffc107; }
+    .modal-icon.danger { color: #ff5252; }
+    .modal-icon.success { color: #00ff88; }
+    .modal-icon.info { color: #00d9ff; }
+
+    .modal-title {
+      font-size: 1.3em;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .modal-body {
+      color: #ccc;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .modal-input {
+      width: 100%;
+      padding: 12px 15px;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.3);
+      color: #fff;
+      font-size: 1.1em;
+      margin-top: 10px;
+    }
+
+    .modal-input:focus {
+      outline: none;
+      border-color: #00d9ff;
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .modal-btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .modal-btn.cancel {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #ccc;
+    }
+
+    .modal-btn.cancel:hover {
+      background: rgba(255,255,255,0.2);
+    }
+
+    .modal-btn.confirm {
+      background: linear-gradient(45deg, #00d9ff, #00ff88);
+      border: none;
+      color: #1a1a2e;
+    }
+
+    .modal-btn.confirm:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(0, 217, 255, 0.4);
+    }
+
+    .modal-btn.danger {
+      background: linear-gradient(45deg, #ff5252, #ff1744);
+      border: none;
+      color: #fff;
+    }
+
+    .modal-btn.danger:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(255, 82, 82, 0.4);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes scaleIn {
+      from { transform: scale(0.9); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
+
+    @keyframes progress {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+
     @media (max-width: 768px) {
       .controls {
         flex-direction: column;
@@ -613,6 +878,9 @@
   </style>
 </head>
 <body>
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
   <div class="container">
     <header>
       <h1>Trading Signal Bot</h1>
@@ -768,6 +1036,159 @@
     const IS_CLOUDFLARE = !window.location.hostname.includes('localhost') &&
                           !window.location.hostname.includes('127.0.0.1') &&
                           !window.location.hostname.match(/^192\.168\./);
+
+    // ===================== TOAST NOTIFICATION SYSTEM =====================
+
+    function showToast(options) {
+      const { type = 'info', title, message, details = [], duration = 4000 } = options;
+
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.style.position = 'relative';
+
+      // Icon based on type
+      const icons = {
+        success: '<span style="color: #00ff88;">&#10003;</span>',
+        error: '<span style="color: #ff5252;">&#10007;</span>',
+        info: '<span style="color: #00d9ff;">&#9432;</span>'
+      };
+
+      // Build details HTML
+      let detailsHtml = '';
+      if (details.length > 0) {
+        detailsHtml = details.map(d => `
+          <div class="detail">
+            <span class="label">${d.label}</span>
+            <span class="value ${d.class || ''}">${d.value}</span>
+          </div>
+        `).join('');
+      }
+
+      toast.innerHTML = `
+        <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+        <div class="toast-header">
+          <span class="toast-icon">${icons[type] || icons.info}</span>
+          <span class="toast-title">${title}</span>
+        </div>
+        <div class="toast-body">
+          ${message ? `<p style="margin-bottom: 10px;">${message}</p>` : ''}
+          ${detailsHtml}
+        </div>
+        <div class="toast-progress"></div>
+      `;
+
+      container.appendChild(toast);
+
+      // Auto remove after duration
+      setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-in forwards';
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
+    }
+
+    // ===================== MODAL DIALOG SYSTEM =====================
+
+    function showModal(options) {
+      return new Promise((resolve) => {
+        const { type = 'info', title, message, inputLabel, inputValue, confirmText = 'Xác nhận', cancelText = 'Hủy', showCancel = true, dangerMode = false } = options;
+
+        const icons = {
+          warning: '&#9888;',
+          danger: '&#128308;',
+          success: '&#10003;',
+          info: '&#9432;'
+        };
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+
+        const inputHtml = inputLabel ? `
+          <label style="color: #888; font-size: 0.9em;">${inputLabel}</label>
+          <input type="number" class="modal-input" id="modal-input" value="${inputValue || ''}" step="any">
+        ` : '';
+
+        overlay.innerHTML = `
+          <div class="modal">
+            <div class="modal-header">
+              <span class="modal-icon ${type}">${icons[type] || icons.info}</span>
+              <span class="modal-title">${title}</span>
+            </div>
+            <div class="modal-body">
+              <p>${message}</p>
+              ${inputHtml}
+            </div>
+            <div class="modal-footer">
+              ${showCancel ? `<button class="modal-btn cancel" id="modal-cancel">${cancelText}</button>` : ''}
+              <button class="modal-btn ${dangerMode ? 'danger' : 'confirm'}" id="modal-confirm">${confirmText}</button>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const input = overlay.querySelector('#modal-input');
+        if (input) {
+          input.focus();
+          input.select();
+        }
+
+        const closeModal = (result) => {
+          overlay.style.animation = 'fadeIn 0.2s ease-out reverse';
+          setTimeout(() => overlay.remove(), 200);
+          resolve(result);
+        };
+
+        overlay.querySelector('#modal-confirm').onclick = () => {
+          if (input) {
+            const value = parseFloat(input.value);
+            closeModal({ confirmed: true, value: isNaN(value) ? null : value });
+          } else {
+            closeModal({ confirmed: true });
+          }
+        };
+
+        if (showCancel) {
+          overlay.querySelector('#modal-cancel').onclick = () => closeModal({ confirmed: false });
+        }
+
+        overlay.onclick = (e) => {
+          if (e.target === overlay) closeModal({ confirmed: false });
+        };
+
+        // Enter key to confirm
+        if (input) {
+          input.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+              overlay.querySelector('#modal-confirm').click();
+            }
+          };
+        }
+      });
+    }
+
+    function showConfirm(title, message, dangerMode = false) {
+      return showModal({
+        type: dangerMode ? 'danger' : 'warning',
+        title,
+        message,
+        confirmText: 'Xác nhận',
+        cancelText: 'Hủy',
+        dangerMode
+      });
+    }
+
+    function showPrompt(title, message, inputLabel, inputValue) {
+      return showModal({
+        type: 'info',
+        title,
+        message,
+        inputLabel,
+        inputValue,
+        confirmText: 'Xác nhận',
+        cancelText: 'Hủy'
+      });
+    }
 
     // ===================== CLIENT-SIDE BINANCE API & SIGNAL ENGINE =====================
     // Used when running on Cloudflare (because Binance blocks Cloudflare IPs)
@@ -1700,7 +2121,11 @@
     // Open a new position
     function openPosition(type) {
       if (!currentSignalData) {
-        alert('Vui lòng phân tích coin trước!');
+        showToast({
+          type: 'error',
+          title: 'Lỗi',
+          message: 'Vui lòng phân tích coin trước!'
+        });
         return;
       }
 
@@ -1711,7 +2136,11 @@
       const tp = parseFloat(document.getElementById('order-tp').value);
 
       if (!margin || margin <= 0) {
-        alert('Vui lòng nhập số USDT margin!');
+        showToast({
+          type: 'error',
+          title: 'Lỗi',
+          message: 'Vui lòng nhập số USDT margin!'
+        });
         return;
       }
 
@@ -1734,19 +2163,51 @@
       savePositions();
       renderOpenPositions();
 
-      alert(`Đã mở lệnh ${type} ${currentSignalData.symbol}\nMargin: ${margin} USDT\nLeverage: ${leverage}x\nEntry: ${entryPrice}`);
+      // Calculate potential loss/profit for display
+      let slLoss = 0, tpProfit = 0;
+      if (sl && entryPrice && position.quantity) {
+        if (type === 'LONG') {
+          slLoss = (sl - entryPrice) * position.quantity;
+          tpProfit = tp ? (tp - entryPrice) * position.quantity : 0;
+        } else {
+          slLoss = (entryPrice - sl) * position.quantity;
+          tpProfit = tp ? (entryPrice - tp) * position.quantity : 0;
+        }
+      }
+
+      showToast({
+        type: 'success',
+        title: `${type === 'LONG' ? '&#128994;' : '&#128308;'} Mở lệnh ${type} thành công!`,
+        details: [
+          { label: 'Symbol', value: currentSignalData.symbol, class: type.toLowerCase() },
+          { label: 'Entry', value: '$' + entryPrice.toLocaleString() },
+          { label: 'Margin', value: margin + ' USDT' },
+          { label: 'Leverage', value: leverage + 'x' },
+          { label: 'Size', value: '$' + position.positionSize.toLocaleString() },
+          { label: 'Stop Loss', value: sl ? '$' + sl.toLocaleString() + ` (${slLoss.toFixed(2)}$)` : 'N/A' },
+          { label: 'Take Profit', value: tp ? '$' + tp.toLocaleString() + ` (+${tpProfit.toFixed(2)}$)` : 'N/A' }
+        ],
+        duration: 5000
+      });
     }
 
     // Close a position
-    function closePosition(id, closePrice = null) {
+    async function closePosition(id, closePrice = null) {
       const index = openPositions.findIndex(p => p.id === id);
       if (index === -1) return;
 
       const position = openPositions[index];
 
       if (!closePrice) {
-        closePrice = parseFloat(prompt('Nhập giá đóng lệnh:', position.entryPrice));
-        if (!closePrice || isNaN(closePrice)) return;
+        const result = await showPrompt(
+          'Đóng lệnh ' + position.symbol,
+          `Loại: <strong style="color: ${position.type === 'LONG' ? '#00ff88' : '#ff5252'}">${position.type}</strong><br>Entry: <strong>$${position.entryPrice.toLocaleString()}</strong>`,
+          'Nhập giá đóng lệnh:',
+          position.entryPrice
+        );
+
+        if (!result.confirmed || !result.value) return;
+        closePrice = result.value;
       }
 
       // Calculate P/L
@@ -1775,29 +2236,75 @@
       renderOpenPositions();
       renderClosedPositions();
       updateStats();
+
+      // Show result toast
+      showToast({
+        type: pnl >= 0 ? 'success' : 'error',
+        title: pnl >= 0 ? '&#127881; Đóng lệnh thắng!' : '&#128532; Đóng lệnh thua',
+        details: [
+          { label: 'Symbol', value: position.symbol },
+          { label: 'Loại', value: position.type, class: position.type.toLowerCase() },
+          { label: 'Entry', value: '$' + position.entryPrice.toLocaleString() },
+          { label: 'Đóng tại', value: '$' + closePrice.toLocaleString() },
+          { label: 'P/L', value: (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '$ (' + (pnlPercent >= 0 ? '+' : '') + pnlPercent.toFixed(2) + '%)', class: pnl >= 0 ? 'long' : 'short' }
+        ],
+        duration: 5000
+      });
     }
 
     // Delete a position (without closing)
-    function deletePosition(id) {
-      if (!confirm('Xóa lệnh này khỏi danh sách?')) return;
-
+    async function deletePosition(id) {
       const index = openPositions.findIndex(p => p.id === id);
-      if (index !== -1) {
-        openPositions.splice(index, 1);
-        savePositions();
-        renderOpenPositions();
-      }
+      if (index === -1) return;
+
+      const position = openPositions[index];
+
+      const result = await showConfirm(
+        'Xóa lệnh',
+        `Bạn có chắc muốn xóa lệnh <strong>${position.symbol}</strong> khỏi danh sách?<br><br><small style="color: #888;">Lệnh sẽ bị xóa và không được lưu vào lịch sử.</small>`,
+        true
+      );
+
+      if (!result.confirmed) return;
+
+      openPositions.splice(index, 1);
+      savePositions();
+      renderOpenPositions();
+
+      showToast({
+        type: 'info',
+        title: 'Đã xóa lệnh',
+        message: `Lệnh ${position.type} ${position.symbol} đã được xóa khỏi danh sách.`,
+        duration: 3000
+      });
     }
 
     // Delete closed position from history
-    function deleteClosedPosition(id) {
+    async function deleteClosedPosition(id) {
       const index = closedPositions.findIndex(p => p.id === id);
-      if (index !== -1) {
-        closedPositions.splice(index, 1);
-        savePositions();
-        renderClosedPositions();
-        updateStats();
-      }
+      if (index === -1) return;
+
+      const position = closedPositions[index];
+
+      const result = await showConfirm(
+        'Xóa khỏi lịch sử',
+        `Xóa lệnh <strong>${position.symbol}</strong> khỏi lịch sử giao dịch?`,
+        true
+      );
+
+      if (!result.confirmed) return;
+
+      closedPositions.splice(index, 1);
+      savePositions();
+      renderClosedPositions();
+      updateStats();
+
+      showToast({
+        type: 'info',
+        title: 'Đã xóa',
+        message: `Đã xóa lệnh ${position.symbol} khỏi lịch sử.`,
+        duration: 3000
+      });
     }
 
     // Render open positions
@@ -1812,7 +2319,20 @@
         return;
       }
 
-      container.innerHTML = openPositions.map(p => `
+      container.innerHTML = openPositions.map(p => {
+        // Calculate estimated SL loss and TP profit
+        let slLoss = 0, tpProfit = 0;
+        if (p.stopLoss && p.entryPrice && p.quantity) {
+          if (p.type === 'LONG') {
+            slLoss = (p.stopLoss - p.entryPrice) * p.quantity;
+            tpProfit = p.takeProfit ? (p.takeProfit - p.entryPrice) * p.quantity : 0;
+          } else {
+            slLoss = (p.entryPrice - p.stopLoss) * p.quantity;
+            tpProfit = p.takeProfit ? (p.entryPrice - p.takeProfit) * p.quantity : 0;
+          }
+        }
+
+        return `
         <div class="position-card ${p.type.toLowerCase()}" data-symbol="${p.symbol}" data-id="${p.id}">
           <div class="position-header">
             <div>
@@ -1840,11 +2360,11 @@
             </div>
             <div>
               <span class="label">Stop Loss</span>
-              <span class="value stop-loss">$${p.stopLoss ? p.stopLoss.toLocaleString() : 'N/A'}</span>
+              <span class="value stop-loss">$${p.stopLoss ? p.stopLoss.toLocaleString() : 'N/A'} ${slLoss ? `<span style="font-size:0.85em">(${slLoss.toFixed(2)}$)</span>` : ''}</span>
             </div>
             <div>
               <span class="label">Take Profit</span>
-              <span class="value take-profit">$${p.takeProfit ? p.takeProfit.toLocaleString() : 'N/A'}</span>
+              <span class="value take-profit">$${p.takeProfit ? p.takeProfit.toLocaleString() : 'N/A'} ${tpProfit ? `<span style="font-size:0.85em">(+${tpProfit.toFixed(2)}$)</span>` : ''}</span>
             </div>
           </div>
           <div class="position-actions">
@@ -1852,7 +2372,7 @@
             <button class="btn-delete" onclick="deletePosition(${p.id})">Xóa</button>
           </div>
         </div>
-      `).join('');
+      `}).join('');
 
       // Update P/L for all positions
       updateAllPositionsPnL();
@@ -1867,7 +2387,20 @@
         return;
       }
 
-      container.innerHTML = closedPositions.map(p => `
+      container.innerHTML = closedPositions.map(p => {
+        // Calculate estimated SL loss and TP profit (from original position)
+        let slLoss = 0, tpProfit = 0;
+        if (p.stopLoss && p.entryPrice && p.quantity) {
+          if (p.type === 'LONG') {
+            slLoss = (p.stopLoss - p.entryPrice) * p.quantity;
+            tpProfit = p.takeProfit ? (p.takeProfit - p.entryPrice) * p.quantity : 0;
+          } else {
+            slLoss = (p.entryPrice - p.stopLoss) * p.quantity;
+            tpProfit = p.takeProfit ? (p.entryPrice - p.takeProfit) * p.quantity : 0;
+          }
+        }
+
+        return `
         <div class="position-card ${p.type.toLowerCase()} ${p.pnl >= 0 ? 'profit' : 'loss'}">
           <div class="position-header">
             <div>
@@ -1897,19 +2430,19 @@
               <span class="value">$${p.closePrice.toLocaleString()}</span>
             </div>
             <div>
-              <span class="label">Mở lệnh</span>
-              <span class="value">${new Date(p.openTime).toLocaleString('vi-VN')}</span>
+              <span class="label">Stop Loss</span>
+              <span class="value stop-loss">$${p.stopLoss ? p.stopLoss.toLocaleString() : 'N/A'} ${slLoss ? `<span style="font-size:0.85em">(${slLoss.toFixed(2)}$)</span>` : ''}</span>
             </div>
             <div>
-              <span class="label">Đóng lệnh</span>
-              <span class="value">${new Date(p.closeTime).toLocaleString('vi-VN')}</span>
+              <span class="label">Take Profit</span>
+              <span class="value take-profit">$${p.takeProfit ? p.takeProfit.toLocaleString() : 'N/A'} ${tpProfit ? `<span style="font-size:0.85em">(+${tpProfit.toFixed(2)}$)</span>` : ''}</span>
             </div>
           </div>
           <div class="position-actions">
             <button class="btn-delete" onclick="deleteClosedPosition(${p.id})">Xóa khỏi lịch sử</button>
           </div>
         </div>
-      `).join('');
+      `}).join('');
     }
 
     // Update stats
