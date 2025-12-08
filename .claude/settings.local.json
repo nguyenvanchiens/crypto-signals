@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm start)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 9308 -Force; Stop-Process -Id 21908 -Force\")",
+      "Bash(timeout /t)",
+      "Bash(powershell -Command \"Stop-Process -Id 116804 -Force; Stop-Process -Id 12228 -Force\")",
+      "Bash(powershell -Command:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

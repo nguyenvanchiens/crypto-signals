@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trading Signal Bot - Futures Long/Short</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      text-align: center;
+      padding: 30px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 30px;
+    }
+
+    header h1 {
+      font-size: 2.5em;
+      background: linear-gradient(45deg, #00d9ff, #00ff88);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+
+    header p {
+      color: #888;
+      font-size: 1.1em;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 15px;
+    }
+
+    .control-group {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .control-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #00d9ff;
+      font-weight: 500;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 12px 15px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      background: #1a1a2e;
+      color: #fff;
+      font-size: 1em;
+      cursor: pointer;
+    }
+
+    select option {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 10px;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: #00d9ff;
+    }
+
+    button {
+      padding: 12px 30px;
+      background: linear-gradient(45deg, #00d9ff, #00ff88);
+      border: none;
+      border-radius: 8px;
+      color: #1a1a2e;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(0, 217, 255, 0.4);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .signal-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 15px;
+      padding: 25px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .signal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .symbol-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .symbol-name {
+      font-size: 1.8em;
+      font-weight: bold;
+    }
+
+    .price {
+      font-size: 1.5em;
+      color: #00ff88;
+    }
+
+    .signal-badge {
+      padding: 10px 25px;
+      border-radius: 25px;
+      font-weight: bold;
+      font-size: 1.2em;
+      text-transform: uppercase;
+    }
+
+    .signal-long {
+      background: linear-gradient(45deg, #00c853, #00e676);
+      color: #1a1a2e;
+    }
+
+    .signal-short {
+      background: linear-gradient(45deg, #ff1744, #ff5252);
+      color: #fff;
+    }
+
+    .signal-wait {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+
+    .indicators-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .indicator-box {
+      background: rgba(0,0,0,0.3);
+      padding: 15px;
+      border-radius: 10px;
+    }
+
+    .indicator-box h4 {
+      color: #888;
+      font-size: 0.85em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .indicator-box .value {
+      font-size: 1.3em;
+      font-weight: bold;
+    }
+
+    .indicator-box .status {
+      font-size: 0.9em;
+      margin-top: 5px;
+    }
+
+    .bullish { color: #00ff88; }
+    .bearish { color: #ff5252; }
+    .neutral { color: #ffd700; }
+
+    .trade-setup {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      padding: 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    .trade-item {
+      text-align: center;
+    }
+
+    .trade-item label {
+      display: block;
+      color: #888;
+      font-size: 0.85em;
+      margin-bottom: 5px;
+    }
+
+    .trade-item .value {
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+
+    .entry { color: #00d9ff; }
+    .stop-loss { color: #ff5252; }
+    .take-profit { color: #00ff88; }
+
+    .reasons {
+      background: rgba(0,0,0,0.3);
+      padding: 15px;
+      border-radius: 10px;
+    }
+
+    .reasons h4 {
+      color: #00d9ff;
+      margin-bottom: 10px;
+    }
+
+    .reasons ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .reasons li {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .reasons li:before {
+      content: "→";
+      color: #00d9ff;
+    }
+
+    .reasons li:last-child {
+      border-bottom: none;
+    }
+
+    .position-calculator {
+      background: rgba(255,255,255,0.05);
+      border-radius: 15px;
+      padding: 25px;
+      margin-top: 30px;
+    }
+
+    .position-calculator h3 {
+      color: #00d9ff;
+      margin-bottom: 20px;
+    }
+
+    .calc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .calc-result {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      padding: 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 50px;
+      color: #888;
+    }
+
+    .loading::after {
+      content: "";
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border: 3px solid rgba(0, 217, 255, 0.3);
+      border-top-color: #00d9ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .multi-signals {
+      display: grid;
+      gap: 15px;
+    }
+
+    .mini-signal {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 20px;
+      align-items: center;
+      background: rgba(255,255,255,0.05);
+      padding: 15px 20px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .mini-signal:hover {
+      border-color: #00d9ff;
+      cursor: pointer;
+    }
+
+    .mini-signal .symbol {
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+
+    .mini-signal .price-info {
+      color: #888;
+    }
+
+    .mini-signal .mini-badge {
+      padding: 5px 15px;
+      border-radius: 15px;
+      font-size: 0.9em;
+      font-weight: bold;
+    }
+
+    .confidence-bar {
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    /* Order Entry Form */
+    .order-entry {
+      background: rgba(0,217,255,0.1);
+      border: 1px solid #00d9ff;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 15px;
+    }
+
+    .order-entry h4 {
+      color: #00d9ff;
+      margin-bottom: 15px;
+    }
+
+    .order-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .order-grid input {
+      padding: 10px;
+      font-size: 0.95em;
+    }
+
+    .order-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .order-buttons button {
+      flex: 1;
+      padding: 12px;
+    }
+
+    .btn-long {
+      background: linear-gradient(45deg, #00c853, #00e676) !important;
+    }
+
+    .btn-short {
+      background: linear-gradient(45deg, #ff1744, #ff5252) !important;
+      color: #fff !important;
+    }
+
+    /* Position History */
+    .position-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-left: 4px solid #888;
+    }
+
+    .position-card.long {
+      border-left-color: #00ff88;
+    }
+
+    .position-card.short {
+      border-left-color: #ff5252;
+    }
+
+    .position-card.profit {
+      background: rgba(0,255,136,0.1);
+    }
+
+    .position-card.loss {
+      background: rgba(255,82,82,0.1);
+    }
+
+    .position-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .position-symbol {
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+
+    .position-pnl {
+      font-weight: bold;
+      font-size: 1.2em;
+    }
+
+    .position-pnl.profit {
+      color: #00ff88;
+    }
+
+    .position-pnl.loss {
+      color: #ff5252;
+    }
+
+    .position-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 10px;
+      font-size: 0.9em;
+      color: #888;
+    }
+
+    .position-details span {
+      display: block;
+    }
+
+    .position-details .label {
+      color: #666;
+      font-size: 0.85em;
+    }
+
+    .position-details .value {
+      color: #fff;
+    }
+
+    .position-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .position-actions button {
+      padding: 8px 15px;
+      font-size: 0.85em;
+    }
+
+    .btn-close-profit {
+      background: linear-gradient(45deg, #00c853, #00e676) !important;
+    }
+
+    .btn-close-loss {
+      background: linear-gradient(45deg, #ff1744, #ff5252) !important;
+      color: #fff !important;
+    }
+
+    .btn-delete {
+      background: rgba(255,255,255,0.1) !important;
+      color: #888 !important;
+    }
+
+    .no-positions {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .history-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+      padding: 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-item .label {
+      color: #888;
+      font-size: 0.85em;
+      margin-bottom: 5px;
+    }
+
+    .stat-item .value {
+      font-size: 1.3em;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab:hover, .tab.active {
+      background: rgba(0, 217, 255, 0.2);
+      border-color: #00d9ff;
+    }
+
+    .symbol-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #1a1a2e;
+      border: 1px solid #00d9ff;
+      border-radius: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 1000;
+      margin-top: 5px;
+    }
+
+    .symbol-dropdown-item {
+      padding: 12px 15px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .symbol-dropdown-item:hover {
+      background: rgba(0, 217, 255, 0.2);
+    }
+
+    .symbol-dropdown-item .coin-name {
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .symbol-dropdown-item .coin-pair {
+      color: #888;
+      font-size: 0.9em;
+    }
+
+    @media (max-width: 768px) {
+      .controls {
+        flex-direction: column;
+      }
+
+      .signal-header {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .mini-signal {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Trading Signal Bot</h1>
+      <p>Phân tích tín hiệu Futures Long/Short với Stop Loss tự động</p>
+    </header>
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('single')">Phân tích 1 Symbol</div>
+      <div class="tab" onclick="switchTab('multi')">Quét nhiều Symbol</div>
+      <div class="tab" onclick="switchTab('positions')">Lệnh đang mở (<span id="open-count">0</span>)</div>
+      <div class="tab" onclick="switchTab('history')">Lịch sử</div>
+    </div>
+
+    <!-- Single Analysis -->
+    <div id="single-tab">
+      <div class="controls" style="align-items: flex-start;">
+        <div class="control-group">
+          <label>Tìm Symbol</label>
+          <div style="position: relative;">
+            <input type="text" id="symbolSearch" placeholder="Nhập tên coin (VD: BTC, ETH, SOL...)" autocomplete="off" oninput="filterSymbols()" onfocus="showSymbolList()">
+            <div id="symbolList" class="symbol-dropdown" style="display: none;"></div>
+            <div id="selectedSymbol" style="position: absolute; bottom: -24px; left: 0; color: #00ff88; font-weight: bold; font-size: 0.9em;">BTC/USDT</div>
+          </div>
+          <input type="hidden" id="symbol" value="BTCUSDT">
+        </div>
+        <div class="control-group">
+          <label>Khung thời gian</label>
+          <select id="interval">
+            <option value="5m">5 Phút</option>
+            <option value="15m">15 Phút</option>
+            <option value="30m">30 Phút</option>
+            <option value="1h" selected>1 Giờ</option>
+            <option value="4h">4 Giờ</option>
+            <option value="1d">1 Ngày</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label>Thị trường</label>
+          <select id="market">
+            <option value="futures" selected>Futures</option>
+            <option value="spot">Spot</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label>&nbsp;</label>
+          <button onclick="analyzeSignal()" id="analyzeBtn">Phân tích</button>
+        </div>
+      </div>
+
+      <div id="signal-result"></div>
+    </div>
+
+    <!-- Multi Analysis -->
+    <div id="multi-tab" style="display: none;">
+      <div class="controls">
+        <div class="control-group">
+          <label>Khung thời gian</label>
+          <select id="multi-interval">
+            <option value="15m">15 Phút</option>
+            <option value="1h" selected>1 Giờ</option>
+            <option value="4h">4 Giờ</option>
+          </select>
+        </div>
+        <div class="control-group" style="display: flex; align-items: flex-end;">
+          <button onclick="scanSignals()" id="scanBtn">Quét tất cả</button>
+        </div>
+      </div>
+
+      <div id="multi-result" class="multi-signals"></div>
+    </div>
+
+    <!-- Position Calculator -->
+    <div id="calculator-tab" style="display: none;">
+      <div class="position-calculator">
+        <h3>Tính Position Size</h3>
+        <div class="calc-grid">
+          <div class="control-group">
+            <label>Số dư tài khoản (USDT)</label>
+            <input type="number" id="balance" value="1000" min="0">
+          </div>
+          <div class="control-group">
+            <label>% Rủi ro mỗi lệnh</label>
+            <input type="number" id="risk" value="2" min="0.1" max="10" step="0.1">
+          </div>
+          <div class="control-group">
+            <label>Giá vào lệnh</label>
+            <input type="number" id="entry" value="0" step="0.01">
+          </div>
+          <div class="control-group">
+            <label>Stop Loss</label>
+            <input type="number" id="sl" value="0" step="0.01">
+          </div>
+          <div class="control-group">
+            <label>Đòn bẩy (Leverage)</label>
+            <input type="number" id="leverage" value="10" min="1" max="125">
+          </div>
+          <div class="control-group" style="display: flex; align-items: flex-end;">
+            <button onclick="calculatePosition()">Tính toán</button>
+          </div>
+        </div>
+
+        <div id="calc-result" class="calc-result" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Open Positions -->
+    <div id="positions-tab" style="display: none;">
+      <div class="history-stats">
+        <div class="stat-item">
+          <div class="label">Tổng lệnh đang mở</div>
+          <div class="value" id="total-open">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">Tổng P/L chưa chốt</div>
+          <div class="value" id="total-unrealized-pnl">$0.00</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">Tổng margin</div>
+          <div class="value" id="total-margin">$0.00</div>
+        </div>
+      </div>
+      <div id="open-positions"></div>
+    </div>
+
+    <!-- History -->
+    <div id="history-tab" style="display: none;">
+      <div class="history-stats">
+        <div class="stat-item">
+          <div class="label">Tổng lệnh đã đóng</div>
+          <div class="value" id="total-closed">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">Tổng P/L</div>
+          <div class="value" id="total-pnl">$0.00</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">Win Rate</div>
+          <div class="value" id="win-rate">0%</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">Lệnh thắng / Thua</div>
+          <div class="value" id="win-loss">0 / 0</div>
+        </div>
+      </div>
+      <div id="closed-positions"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '';
+
+    // Danh sách tất cả coin trên Binance Futures (150+ coins)
+    const ALL_SYMBOLS = [
+      // Top coins
+      'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'SOLUSDT', 'ADAUSDT',
+      'DOGEUSDT', 'TRXUSDT', 'DOTUSDT', 'LINKUSDT', 'AVAXUSDT', 'MATICUSDT',
+      'LTCUSDT', 'BCHUSDT', 'XLMUSDT', 'ATOMUSDT', 'UNIUSDT', 'ETCUSDT',
+
+      // Layer 1 & Layer 2
+      'APTUSDT', 'ARBUSDT', 'OPUSDT', 'SUIUSDT', 'SEIUSDT', 'NEARUSDT',
+      'FTMUSDT', 'ALGOUSDT', 'ICPUSDT', 'VETUSDT', 'HBARUSDT', 'QNTUSDT',
+      'INJUSDT', 'TIAUSDT', 'STXUSDT', 'MANTAUSDT', 'BLURUSDT', 'STRKUSDT',
+      'ZKUSDT', 'SCROLLUSDT', 'EIGENUSDT',
+
+      // DeFi
+      'AAVEUSDT', 'MKRUSDT', 'COMPUSDT', 'SNXUSDT', 'CRVUSDT', 'LDOUSDT',
+      'GMXUSDT', 'DYDXUSDT', 'PENDLEUSDT', 'JUPUSDT', 'RAYDIUMUSDT',
+      '1INCHUSDT', 'SUSHIUSDT', 'YFIUSDT', 'BALUSDT', 'ZABORUSDT',
+
+      // Gaming & Metaverse
+      'SANDUSDT', 'MANAUSDT', 'AXSUSDT', 'GALAUSDT', 'ENJUSDT', 'IMXUSDT',
+      'ILVUSDT', 'MAGICUSDT', 'GMTUSDT', 'LOOKSUSDT', 'HIGHUSDT', 'ACEUSDT',
+      'PIXELUSDT', 'PORTALUSDT', 'XABORUSDT', 'RONUSDT',
+
+      // AI & Data
+      'RNDRUSDT', 'FETUSDT', 'AGIXUSDT', 'OCEANUSDT', 'ARKMUSDT', 'WLDUSDT',
+      'TAOUSDT', 'AIUSDT', 'NFPUSDT', 'ALTUSDT',
+
+      // Meme coins
+      'PEPEUSDT', 'SHIBUSDT', 'FLOKIUSDT', 'BONKUSDT', 'WIFUSDT', 'MEMEUSDT',
+      'BOMEUSDT', 'PEOPLEUSDT', 'LUNCUSDT', 'NEIROUSDT', 'TURBOFLOKIUSDT',
+      '1000PEPEUSDT', '1000SHIBUSDT', '1000FLOKIUSDT', '1000BONKUSDT',
+      '1000LUNCUSDT', 'DOGEUSDT', 'BABYDOGEUSDT',
+
+      // Storage & Infrastructure
+      'FILUSDT', 'ARUSDT', 'STORJUSDT', 'SCUSDT', 'ABORUSDT',
+
+      // Oracle & Cross-chain
+      'BANDUSDT', 'APIUSDT', 'CELRUSDT', 'RENUSDT', 'COTIUSDT',
+
+      // Exchange tokens
+      'BNBUSDT', 'FTMUSDT', 'CAKEUSDT', 'OOKIUSDT',
+
+      // Privacy coins
+      'XMRUSDT', 'ZECUSDT', 'DASHUSDT',
+
+      // New & Trending
+      'ORDIUSDT', 'KASUSDT', 'RUNEUSDT', 'ENAUSDT', 'WUSDT', 'TONUSDT',
+      'NOTUSDT', 'DOGSUSDT', 'CATIUSDT', 'HMSTRUSDT', 'SCRUSDT',
+      'MOVEUSDT', 'MEUSDT', 'VANAUSDT', 'PENGUUSDT', 'USUALUSDT',
+
+      // Others
+      'GRTUSDT', 'CHZUSDT', 'APEUSDT', 'LRCUSDT', 'RSRUSDT', 'KAVAUSDT',
+      'IOSTUSDT', 'ZILUSDT', 'ONTUSDT', 'IOTAUSDT', 'NEOUSDT', 'WAVESUSDT',
+      'EOSUSDT', 'XTZUSDT', 'THETAUSDT', 'EGLDUSDT', 'FLOWUSDT', 'MINAUSDT',
+      'CFXUSDT', 'ACHUSDT', 'ANKRUSDT', 'SKLUSDT', 'WOOUSDT', 'AGLDUSDT',
+      'MASKUSDT', 'ENSUSDT', 'SSUSDT', 'BICOUSDT', 'TUSDT', 'EDUUSDT',
+      'IDUSDT', 'RDNTUSDT', 'MAVUSDT', 'XVSUSDT', 'UMAUSDT', 'LEVERUSDT',
+      'KEYUSDT', 'COMBOUSDT', 'NMRUSDT', 'MDTUSDT', 'XEMUSDT', 'BELUSDT',
+      'LITUSDT', 'CKBUSDT', 'PERPUSDT', 'TRUUSDT', 'LQTYUSDT', 'UXLINKUSDT'
+    ];
+
+    // Symbol search functions
+    function showSymbolList() {
+      filterSymbols();
+      document.getElementById('symbolList').style.display = 'block';
+    }
+
+    function hideSymbolList() {
+      setTimeout(() => {
+        document.getElementById('symbolList').style.display = 'none';
+      }, 200);
+    }
+
+    function filterSymbols() {
+      const search = document.getElementById('symbolSearch').value.toUpperCase();
+      const list = document.getElementById('symbolList');
+
+      // Nếu chưa gõ gì, hiển thị tất cả (có scroll), nếu có search thì filter
+      const filtered = search
+        ? ALL_SYMBOLS.filter(s => s.includes(search))
+        : ALL_SYMBOLS;
+
+      if (filtered.length === 0) {
+        list.innerHTML = '<div class="symbol-dropdown-item"><span>Không tìm thấy</span></div>';
+      } else {
+        list.innerHTML = filtered.map(s => {
+          const coin = s.replace('USDT', '');
+          return `
+            <div class="symbol-dropdown-item" onclick="selectCoin('${s}')">
+              <span class="coin-name">${coin}</span>
+              <span class="coin-pair">${s}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      list.style.display = 'block';
+    }
+
+    function selectCoin(symbol) {
+      document.getElementById('symbol').value = symbol;
+      document.getElementById('symbolSearch').value = '';
+      document.getElementById('selectedSymbol').textContent = symbol.replace('USDT', '/USDT');
+      document.getElementById('symbolList').style.display = 'none';
+      analyzeSignal();
+    }
+
+    // Click outside to close dropdown
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.control-group')) {
+        document.getElementById('symbolList').style.display = 'none';
+      }
+    });
+
+    // Tab switching
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('[id$="-tab"]').forEach(t => t.style.display = 'none');
+
+      event.target.classList.add('active');
+      document.getElementById(tab + '-tab').style.display = 'block';
+    }
+
+    // Single symbol analysis
+    async function analyzeSignal() {
+      const symbol = document.getElementById('symbol').value;
+      const interval = document.getElementById('interval').value;
+      const market = document.getElementById('market').value;
+      const btn = document.getElementById('analyzeBtn');
+      const resultDiv = document.getElementById('signal-result');
+
+      btn.disabled = true;
+      btn.textContent = 'Đang phân tích...';
+      resultDiv.innerHTML = '<div class="loading">Đang phân tích</div>';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/signal/${symbol}?interval=${interval}&market=${market}`);
+        const data = await response.json();
+
+        if (data.success) {
+          renderSignal(data.data);
+        } else {
+          resultDiv.innerHTML = `<div class="signal-card"><p style="color: #ff5252;">Lỗi: ${data.error}</p></div>`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="signal-card"><p style="color: #ff5252;">Lỗi kết nối: ${error.message}</p></div>`;
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Phân tích';
+    }
+
+    // Render signal result
+    function renderSignal(data) {
+      const { signal, indicators, analysis, currentPrice, symbol, interval } = data;
+
+      const signalClass = signal.action === 'LONG' ? 'signal-long' :
+                         signal.action === 'SHORT' ? 'signal-short' : 'signal-wait';
+
+      const html = `
+        <div class="signal-card">
+          <div class="signal-header">
+            <div class="symbol-info">
+              <span class="symbol-name">${symbol}</span>
+              <span class="price">$${currentPrice.toLocaleString()}</span>
+              <span style="color: #888; font-size: 0.9em;">${interval}</span>
+            </div>
+            <div class="signal-badge ${signalClass}">
+              ${signal.action} ${signal.action !== 'WAIT' ? `(${signal.confidence})` : ''}
+            </div>
+          </div>
+
+          <div class="indicators-grid">
+            <div class="indicator-box">
+              <h4>RSI (14)</h4>
+              <div class="value ${analysis.rsi.score > 0 ? 'bullish' : analysis.rsi.score < 0 ? 'bearish' : 'neutral'}">
+                ${indicators.rsi.current ? indicators.rsi.current.toFixed(2) : 'N/A'}
+              </div>
+              <div class="status">${analysis.rsi.signal}</div>
+            </div>
+
+            <div class="indicator-box">
+              <h4>MACD</h4>
+              <div class="value ${analysis.macd.score > 0 ? 'bullish' : analysis.macd.score < 0 ? 'bearish' : 'neutral'}">
+                ${indicators.macd.histogram ? indicators.macd.histogram.toFixed(4) : 'N/A'}
+              </div>
+              <div class="status">${analysis.macd.signal}</div>
+            </div>
+
+            <div class="indicator-box">
+              <h4>EMA (9/21/50)</h4>
+              <div class="value ${analysis.ema.score > 0 ? 'bullish' : analysis.ema.score < 0 ? 'bearish' : 'neutral'}">
+                ${analysis.ema.signal}
+              </div>
+              <div class="status">${analysis.trend.signal}</div>
+            </div>
+
+            <div class="indicator-box">
+              <h4>Bollinger Bands</h4>
+              <div class="value ${analysis.bb.score > 0 ? 'bullish' : analysis.bb.score < 0 ? 'bearish' : 'neutral'}">
+                ${analysis.bb.pricePosition}%
+              </div>
+              <div class="status">${analysis.bb.signal}</div>
+            </div>
+
+            <div class="indicator-box">
+              <h4>ATR (14)</h4>
+              <div class="value neutral">
+                ${signal.atr || 'N/A'}
+              </div>
+              <div class="status">Volatility</div>
+            </div>
+
+            <div class="indicator-box">
+              <h4>Tổng điểm</h4>
+              <div class="value ${signal.totalScore > 0 ? 'bullish' : signal.totalScore < 0 ? 'bearish' : 'neutral'}">
+                ${signal.totalScore} (${signal.averageScore})
+              </div>
+              <div class="status">${signal.strength}</div>
+            </div>
+          </div>
+
+          ${signal.action !== 'WAIT' ? `
+          <div class="trade-setup">
+            <div class="trade-item">
+              <label>Entry Price</label>
+              <div class="value entry">$${signal.entry.toLocaleString()}</div>
+            </div>
+            <div class="trade-item">
+              <label>Stop Loss</label>
+              <div class="value stop-loss">$${parseFloat(signal.stopLoss).toLocaleString()}</div>
+              <div style="color: #ff5252; font-size: 0.85em;">${signal.riskPercent}</div>
+            </div>
+            <div class="trade-item">
+              <label>Take Profit</label>
+              <div class="value take-profit">$${parseFloat(signal.takeProfit).toLocaleString()}</div>
+              <div style="color: #00ff88; font-size: 0.85em;">${signal.rewardPercent}</div>
+            </div>
+            <div class="trade-item">
+              <label>Risk/Reward</label>
+              <div class="value neutral">1:${signal.riskReward}</div>
+            </div>
+            <div class="trade-item">
+              <label>Đòn bẩy gợi ý</label>
+              <div class="value" style="color: ${signal.leverageRisk === 'SAFE' ? '#00ff88' : signal.leverageRisk === 'LOW' ? '#00d9ff' : '#ffd700'}; font-size: 1.5em;">
+                ${signal.leverage}x
+              </div>
+              <div style="font-size: 0.85em; color: ${signal.leverageRisk === 'SAFE' ? '#00ff88' : signal.leverageRisk === 'LOW' ? '#00d9ff' : '#ffd700'};">
+                ${signal.leverageRisk === 'SAFE' ? 'An toàn' : signal.leverageRisk === 'LOW' ? 'Rủi ro thấp' : 'Rủi ro TB'}
+              </div>
+            </div>
+            <div class="trade-item">
+              <label>ATR %</label>
+              <div class="value neutral">${signal.atrPercent || 'N/A'}</div>
+              <div style="font-size: 0.85em; color: #888;">Volatility</div>
+            </div>
+          </div>
+          ` : ''}
+
+          <div class="reasons">
+            <h4>Lý do ${signal.action === 'WAIT' ? 'chờ đợi' : signal.action}</h4>
+            <ul>
+              ${signal.reasons.map(r => `<li>${r}</li>`).join('')}
+            </ul>
+          </div>
+
+          ${signal.action !== 'WAIT' ? `
+          <div class="order-entry">
+            <h4>Mở lệnh ${signal.action}</h4>
+            <div class="order-grid">
+              <div>
+                <label style="display: block; margin-bottom: 5px; color: #888; font-size: 0.85em;">Margin (USDT)</label>
+                <input type="number" id="order-margin" placeholder="VD: 5, 10, 50..." value="10" min="1" step="1">
+              </div>
+              <div>
+                <label style="display: block; margin-bottom: 5px; color: #888; font-size: 0.85em;">Giá vào</label>
+                <input type="number" id="order-entry" value="${signal.entry}" step="0.01">
+              </div>
+              <div>
+                <label style="display: block; margin-bottom: 5px; color: #888; font-size: 0.85em;">Leverage</label>
+                <input type="number" id="order-leverage" value="${signal.leverage}" min="1" max="125">
+              </div>
+              <div>
+                <label style="display: block; margin-bottom: 5px; color: #888; font-size: 0.85em;">Stop Loss</label>
+                <input type="number" id="order-sl" value="${signal.stopLoss}" step="0.01">
+              </div>
+              <div>
+                <label style="display: block; margin-bottom: 5px; color: #888; font-size: 0.85em;">Take Profit</label>
+                <input type="number" id="order-tp" value="${signal.takeProfit}" step="0.01">
+              </div>
+            </div>
+            <div class="order-buttons">
+              <button class="btn-long" onclick="openPosition('LONG')">Mở LONG</button>
+              <button class="btn-short" onclick="openPosition('SHORT')">Mở SHORT</button>
+            </div>
+          </div>
+          ` : ''}
+        </div>
+      `;
+
+      document.getElementById('signal-result').innerHTML = html;
+
+      // Store current signal data for opening positions
+      currentSignalData = data;
+
+      // Auto-fill calculator
+      if (signal.action !== 'WAIT') {
+        document.getElementById('entry').value = signal.entry;
+        document.getElementById('sl').value = signal.stopLoss;
+      }
+    }
+
+    // Scan multiple symbols
+    async function scanSignals() {
+      const interval = document.getElementById('multi-interval').value;
+      const btn = document.getElementById('scanBtn');
+      const resultDiv = document.getElementById('multi-result');
+
+      btn.disabled = true;
+      btn.textContent = 'Đang quét...';
+      resultDiv.innerHTML = '<div class="loading">Đang quét tín hiệu</div>';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/signals?interval=${interval}`);
+        const data = await response.json();
+
+        if (data.success) {
+          renderMultiSignals(data.data);
+        } else {
+          resultDiv.innerHTML = `<div class="signal-card"><p style="color: #ff5252;">Lỗi: ${data.error}</p></div>`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="signal-card"><p style="color: #ff5252;">Lỗi kết nối: ${error.message}</p></div>`;
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Quét tất cả';
+    }
+
+    // Render multiple signals
+    function renderMultiSignals(signals) {
+      // Sort by signal strength
+      signals.sort((a, b) => {
+        if (a.signal && b.signal) {
+          return Math.abs(b.signal.totalScore) - Math.abs(a.signal.totalScore);
+        }
+        return 0;
+      });
+
+      const html = signals.map(s => {
+        if (s.error) {
+          return `<div class="mini-signal"><span class="symbol">${s.symbol}</span><span style="color: #ff5252;">Error</span></div>`;
+        }
+
+        const signalClass = s.signal.action === 'LONG' ? 'signal-long' :
+                           s.signal.action === 'SHORT' ? 'signal-short' : 'signal-wait';
+
+        const confidence = parseFloat(s.signal.confidence) || 0;
+
+        return `
+          <div class="mini-signal" onclick="selectSymbol('${s.symbol}')">
+            <div>
+              <div class="symbol">${s.symbol}</div>
+              <div class="price-info">$${s.currentPrice.toLocaleString()}</div>
+            </div>
+            <div>
+              <div style="color: #888; font-size: 0.85em;">Score: ${s.signal.totalScore} | ${s.signal.strength}</div>
+              <div class="confidence-bar">
+                <div class="confidence-fill" style="width: ${confidence}%; background: ${s.signal.action === 'LONG' ? '#00ff88' : s.signal.action === 'SHORT' ? '#ff5252' : '#888'};"></div>
+              </div>
+            </div>
+            <div class="mini-badge ${signalClass}">${s.signal.action}</div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('multi-result').innerHTML = html;
+    }
+
+    // Select symbol from multi scan
+    function selectSymbol(symbol) {
+      document.getElementById('symbol').value = symbol;
+      switchTab('single');
+      document.querySelector('.tab').click();
+      analyzeSignal();
+    }
+
+    // Position calculator
+    async function calculatePosition() {
+      const balance = parseFloat(document.getElementById('balance').value);
+      const risk = parseFloat(document.getElementById('risk').value);
+      const entry = parseFloat(document.getElementById('entry').value);
+      const sl = parseFloat(document.getElementById('sl').value);
+      const leverage = parseInt(document.getElementById('leverage').value);
+
+      if (!balance || !entry || !sl) {
+        alert('Vui lòng điền đầy đủ thông tin!');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/calculate-position`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accountBalance: balance,
+            riskPercent: risk,
+            entryPrice: entry,
+            stopLoss: sl,
+            leverage: leverage
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          const r = data.data;
+          document.getElementById('calc-result').style.display = 'grid';
+          document.getElementById('calc-result').innerHTML = `
+            <div class="trade-item">
+              <label>Số tiền rủi ro</label>
+              <div class="value stop-loss">$${r.riskAmount}</div>
+            </div>
+            <div class="trade-item">
+              <label>% Stop Loss</label>
+              <div class="value stop-loss">${r.stopLossPercent}</div>
+            </div>
+            <div class="trade-item">
+              <label>Position Size</label>
+              <div class="value entry">$${r.positionSize}</div>
+            </div>
+            <div class="trade-item">
+              <label>Số lượng coin</label>
+              <div class="value neutral">${r.quantity}</div>
+            </div>
+            <div class="trade-item">
+              <label>Margin cần (${r.leverage})</label>
+              <div class="value take-profit">$${r.marginRequired}</div>
+            </div>
+          `;
+        }
+      } catch (error) {
+        alert('Lỗi tính toán: ' + error.message);
+      }
+    }
+
+    // ===================== POSITION TRACKING =====================
+
+    // Load positions from localStorage
+    let openPositions = JSON.parse(localStorage.getItem('openPositions') || '[]');
+    let closedPositions = JSON.parse(localStorage.getItem('closedPositions') || '[]');
+    let currentSignalData = null;
+
+    // Save positions to localStorage
+    function savePositions() {
+      localStorage.setItem('openPositions', JSON.stringify(openPositions));
+      localStorage.setItem('closedPositions', JSON.stringify(closedPositions));
+      updateOpenCount();
+    }
+
+    // Update open count in tab
+    function updateOpenCount() {
+      document.getElementById('open-count').textContent = openPositions.length;
+    }
+
+    // Open a new position
+    function openPosition(type) {
+      if (!currentSignalData) {
+        alert('Vui lòng phân tích coin trước!');
+        return;
+      }
+
+      const margin = parseFloat(document.getElementById('order-margin').value);
+      const entryPrice = parseFloat(document.getElementById('order-entry').value);
+      const leverage = parseInt(document.getElementById('order-leverage').value);
+      const sl = parseFloat(document.getElementById('order-sl').value);
+      const tp = parseFloat(document.getElementById('order-tp').value);
+
+      if (!margin || margin <= 0) {
+        alert('Vui lòng nhập số USDT margin!');
+        return;
+      }
+
+      const position = {
+        id: Date.now(),
+        symbol: currentSignalData.symbol,
+        type: type, // 'LONG' or 'SHORT'
+        margin: margin,
+        leverage: leverage,
+        entryPrice: entryPrice,
+        stopLoss: sl,
+        takeProfit: tp,
+        quantity: (margin * leverage) / entryPrice,
+        positionSize: margin * leverage,
+        openTime: new Date().toISOString(),
+        status: 'OPEN'
+      };
+
+      openPositions.push(position);
+      savePositions();
+      renderOpenPositions();
+
+      alert(`Đã mở lệnh ${type} ${currentSignalData.symbol}\nMargin: ${margin} USDT\nLeverage: ${leverage}x\nEntry: ${entryPrice}`);
+    }
+
+    // Close a position
+    function closePosition(id, closePrice = null) {
+      const index = openPositions.findIndex(p => p.id === id);
+      if (index === -1) return;
+
+      const position = openPositions[index];
+
+      if (!closePrice) {
+        closePrice = parseFloat(prompt('Nhập giá đóng lệnh:', position.entryPrice));
+        if (!closePrice || isNaN(closePrice)) return;
+      }
+
+      // Calculate P/L
+      let pnl;
+      if (position.type === 'LONG') {
+        pnl = (closePrice - position.entryPrice) * position.quantity;
+      } else {
+        pnl = (position.entryPrice - closePrice) * position.quantity;
+      }
+
+      const pnlPercent = (pnl / position.margin) * 100;
+
+      // Move to closed positions
+      const closedPosition = {
+        ...position,
+        closePrice: closePrice,
+        closeTime: new Date().toISOString(),
+        pnl: pnl,
+        pnlPercent: pnlPercent,
+        status: pnl >= 0 ? 'WIN' : 'LOSS'
+      };
+
+      closedPositions.unshift(closedPosition);
+      openPositions.splice(index, 1);
+      savePositions();
+      renderOpenPositions();
+      renderClosedPositions();
+      updateStats();
+    }
+
+    // Delete a position (without closing)
+    function deletePosition(id) {
+      if (!confirm('Xóa lệnh này khỏi danh sách?')) return;
+
+      const index = openPositions.findIndex(p => p.id === id);
+      if (index !== -1) {
+        openPositions.splice(index, 1);
+        savePositions();
+        renderOpenPositions();
+      }
+    }
+
+    // Delete closed position from history
+    function deleteClosedPosition(id) {
+      const index = closedPositions.findIndex(p => p.id === id);
+      if (index !== -1) {
+        closedPositions.splice(index, 1);
+        savePositions();
+        renderClosedPositions();
+        updateStats();
+      }
+    }
+
+    // Render open positions
+    function renderOpenPositions() {
+      const container = document.getElementById('open-positions');
+
+      if (openPositions.length === 0) {
+        container.innerHTML = '<div class="no-positions">Chưa có lệnh nào đang mở</div>';
+        document.getElementById('total-open').textContent = '0';
+        document.getElementById('total-unrealized-pnl').textContent = '$0.00';
+        document.getElementById('total-margin').textContent = '$0.00';
+        return;
+      }
+
+      container.innerHTML = openPositions.map(p => `
+        <div class="position-card ${p.type.toLowerCase()}" data-symbol="${p.symbol}" data-id="${p.id}">
+          <div class="position-header">
+            <div>
+              <span class="position-symbol">${p.symbol}</span>
+              <span class="signal-badge signal-${p.type.toLowerCase()}" style="font-size: 0.8em; padding: 3px 10px;">${p.type}</span>
+            </div>
+            <div class="position-pnl" id="pnl-${p.id}">Đang tải...</div>
+          </div>
+          <div class="position-details">
+            <div>
+              <span class="label">Margin</span>
+              <span class="value">${p.margin.toFixed(2)} USDT</span>
+            </div>
+            <div>
+              <span class="label">Leverage</span>
+              <span class="value">${p.leverage}x</span>
+            </div>
+            <div>
+              <span class="label">Entry</span>
+              <span class="value">$${p.entryPrice.toLocaleString()}</span>
+            </div>
+            <div>
+              <span class="label">Giá hiện tại</span>
+              <span class="value" id="current-price-${p.id}">...</span>
+            </div>
+            <div>
+              <span class="label">Stop Loss</span>
+              <span class="value stop-loss">$${p.stopLoss ? p.stopLoss.toLocaleString() : 'N/A'}</span>
+            </div>
+            <div>
+              <span class="label">Take Profit</span>
+              <span class="value take-profit">$${p.takeProfit ? p.takeProfit.toLocaleString() : 'N/A'}</span>
+            </div>
+          </div>
+          <div class="position-actions">
+            <button class="btn-close-profit" onclick="closePosition(${p.id})">Đóng lệnh</button>
+            <button class="btn-delete" onclick="deletePosition(${p.id})">Xóa</button>
+          </div>
+        </div>
+      `).join('');
+
+      // Update P/L for all positions
+      updateAllPositionsPnL();
+    }
+
+    // Render closed positions
+    function renderClosedPositions() {
+      const container = document.getElementById('closed-positions');
+
+      if (closedPositions.length === 0) {
+        container.innerHTML = '<div class="no-positions">Chưa có lịch sử giao dịch</div>';
+        return;
+      }
+
+      container.innerHTML = closedPositions.map(p => `
+        <div class="position-card ${p.type.toLowerCase()} ${p.pnl >= 0 ? 'profit' : 'loss'}">
+          <div class="position-header">
+            <div>
+              <span class="position-symbol">${p.symbol}</span>
+              <span class="signal-badge signal-${p.type.toLowerCase()}" style="font-size: 0.8em; padding: 3px 10px;">${p.type}</span>
+              <span style="color: ${p.pnl >= 0 ? '#00ff88' : '#ff5252'}; font-size: 0.85em; margin-left: 10px;">${p.status}</span>
+            </div>
+            <div class="position-pnl ${p.pnl >= 0 ? 'profit' : 'loss'}">
+              ${p.pnl >= 0 ? '+' : ''}$${p.pnl.toFixed(2)} (${p.pnlPercent >= 0 ? '+' : ''}${p.pnlPercent.toFixed(1)}%)
+            </div>
+          </div>
+          <div class="position-details">
+            <div>
+              <span class="label">Margin</span>
+              <span class="value">${p.margin.toFixed(2)} USDT</span>
+            </div>
+            <div>
+              <span class="label">Leverage</span>
+              <span class="value">${p.leverage}x</span>
+            </div>
+            <div>
+              <span class="label">Entry</span>
+              <span class="value">$${p.entryPrice.toLocaleString()}</span>
+            </div>
+            <div>
+              <span class="label">Đóng tại</span>
+              <span class="value">$${p.closePrice.toLocaleString()}</span>
+            </div>
+            <div>
+              <span class="label">Mở lệnh</span>
+              <span class="value">${new Date(p.openTime).toLocaleString('vi-VN')}</span>
+            </div>
+            <div>
+              <span class="label">Đóng lệnh</span>
+              <span class="value">${new Date(p.closeTime).toLocaleString('vi-VN')}</span>
+            </div>
+          </div>
+          <div class="position-actions">
+            <button class="btn-delete" onclick="deleteClosedPosition(${p.id})">Xóa khỏi lịch sử</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Update stats
+    function updateStats() {
+      const totalClosed = closedPositions.length;
+      const totalPnL = closedPositions.reduce((sum, p) => sum + p.pnl, 0);
+      const wins = closedPositions.filter(p => p.pnl >= 0).length;
+      const losses = closedPositions.filter(p => p.pnl < 0).length;
+      const winRate = totalClosed > 0 ? (wins / totalClosed * 100).toFixed(1) : 0;
+
+      document.getElementById('total-closed').textContent = totalClosed;
+      document.getElementById('total-pnl').textContent = `${totalPnL >= 0 ? '+' : ''}$${totalPnL.toFixed(2)}`;
+      document.getElementById('total-pnl').style.color = totalPnL >= 0 ? '#00ff88' : '#ff5252';
+      document.getElementById('win-rate').textContent = `${winRate}%`;
+      document.getElementById('win-rate').style.color = winRate >= 50 ? '#00ff88' : '#ff5252';
+      document.getElementById('win-loss').textContent = `${wins} / ${losses}`;
+    }
+
+    // Update P/L for all open positions
+    async function updateAllPositionsPnL() {
+      let totalUnrealizedPnL = 0;
+      let totalMargin = 0;
+
+      for (const position of openPositions) {
+        try {
+          const response = await fetch(`${API_BASE}/api/price/${position.symbol}?market=futures`);
+          const data = await response.json();
+
+          if (data.success) {
+            const currentPrice = data.data.price;
+            let pnl;
+
+            if (position.type === 'LONG') {
+              pnl = (currentPrice - position.entryPrice) * position.quantity;
+            } else {
+              pnl = (position.entryPrice - currentPrice) * position.quantity;
+            }
+
+            const pnlPercent = (pnl / position.margin) * 100;
+            totalUnrealizedPnL += pnl;
+            totalMargin += position.margin;
+
+            // Update UI
+            const pnlEl = document.getElementById(`pnl-${position.id}`);
+            const priceEl = document.getElementById(`current-price-${position.id}`);
+
+            if (pnlEl) {
+              pnlEl.textContent = `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(1)}%)`;
+              pnlEl.className = `position-pnl ${pnl >= 0 ? 'profit' : 'loss'}`;
+            }
+
+            if (priceEl) {
+              priceEl.textContent = `$${currentPrice.toLocaleString()}`;
+            }
+          }
+        } catch (e) {
+          console.error(`Error fetching price for ${position.symbol}:`, e);
+        }
+      }
+
+      // Update totals
+      document.getElementById('total-open').textContent = openPositions.length;
+      document.getElementById('total-unrealized-pnl').textContent = `${totalUnrealizedPnL >= 0 ? '+' : ''}$${totalUnrealizedPnL.toFixed(2)}`;
+      document.getElementById('total-unrealized-pnl').style.color = totalUnrealizedPnL >= 0 ? '#00ff88' : '#ff5252';
+      document.getElementById('total-margin').textContent = `$${totalMargin.toFixed(2)}`;
+    }
+
+    // Auto-refresh price and P/L
+    setInterval(async () => {
+      const symbol = document.getElementById('symbol').value;
+      try {
+        const response = await fetch(`${API_BASE}/api/price/${symbol}`);
+        const data = await response.json();
+        if (data.success) {
+          const priceEl = document.querySelector('.price');
+          if (priceEl) {
+            priceEl.textContent = '$' + data.data.price.toLocaleString();
+          }
+        }
+      } catch (e) {}
+
+      // Update open positions P/L
+      if (openPositions.length > 0) {
+        updateAllPositionsPnL();
+      }
+    }, 5000); // Update every 5 seconds
+
+    // Initialize
+    function initPositions() {
+      updateOpenCount();
+      renderOpenPositions();
+      renderClosedPositions();
+      updateStats();
+    }
+
+    // Initial analysis
+    analyzeSignal();
+    initPositions();
+  </script>
+</body>
+</html>
