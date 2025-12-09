@@ -500,6 +500,15 @@
       color: #888 !important;
     }
 
+    .btn-copy {
+      background: linear-gradient(45deg, #00d9ff, #0099cc) !important;
+      color: #fff !important;
+    }
+
+    .btn-copy:hover {
+      box-shadow: 0 3px 15px rgba(0, 217, 255, 0.4);
+    }
+
     .no-positions {
       text-align: center;
       padding: 40px;
@@ -2307,6 +2316,49 @@
       });
     }
 
+    // Copy position info to clipboard
+    function copyPosition(id) {
+      const position = openPositions.find(p => p.id === id);
+      if (!position) return;
+
+      // Calculate SL loss and TP profit
+      let slLoss = 0, tpProfit = 0;
+      if (position.stopLoss && position.entryPrice && position.quantity) {
+        if (position.type === 'LONG') {
+          slLoss = (position.stopLoss - position.entryPrice) * position.quantity;
+          tpProfit = position.takeProfit ? (position.takeProfit - position.entryPrice) * position.quantity : 0;
+        } else {
+          slLoss = (position.entryPrice - position.stopLoss) * position.quantity;
+          tpProfit = position.takeProfit ? (position.entryPrice - position.takeProfit) * position.quantity : 0;
+        }
+      }
+
+      const text = `📊 ${position.symbol} - ${position.type}
+━━━━━━━━━━━━━━━━━━
+💰 Margin: ${position.margin.toFixed(2)} USDT
+⚡ Leverage: ${position.leverage}x
+📈 Size: $${position.positionSize.toLocaleString()}
+━━━━━━━━━━━━━━━━━━
+🛑 Stop Loss: $${position.stopLoss ? position.stopLoss.toLocaleString() : 'N/A'}
+✅ Take Profit: $${position.takeProfit ? position.takeProfit.toLocaleString() : 'N/A'}`;
+
+      navigator.clipboard.writeText(text).then(() => {
+        showToast({
+          type: 'success',
+          title: 'Đã copy!',
+          message: `Thông tin lệnh ${position.symbol} đã được copy vào clipboard.`,
+          duration: 2000
+        });
+      }).catch(err => {
+        showToast({
+          type: 'error',
+          title: 'Lỗi',
+          message: 'Không thể copy. Vui lòng thử lại.',
+          duration: 3000
+        });
+      });
+    }
+
     // Render open positions
     function renderOpenPositions() {
       const container = document.getElementById('open-positions');
@@ -2368,6 +2420,7 @@
             </div>
           </div>
           <div class="position-actions">
+            <button class="btn-copy" onclick="copyPosition(${p.id})">📋 Copy</button>
             <button class="btn-close-profit" onclick="closePosition(${p.id})">Đóng lệnh</button>
             <button class="btn-delete" onclick="deletePosition(${p.id})">Xóa</button>
           </div>
