@@ -171,9 +171,9 @@ class SignalEngine {
       bbPeriod: config.bbPeriod || 20,
       bbStdDev: config.bbStdDev || 2,
       atrPeriod: config.atrPeriod || 14,
-      atrMultiplierLong: config.atrMultiplierLong || 1.5,
-      atrMultiplierShort: config.atrMultiplierShort || 2.0,
-      riskRewardRatio: config.riskRewardRatio || 2,
+      atrMultiplierLong: config.atrMultiplierLong || 2.5,   // Tăng từ 1.5 để SL rộng hơn
+      atrMultiplierShort: config.atrMultiplierShort || 2.5, // Tăng để SL rộng hơn
+      riskRewardRatio: config.riskRewardRatio || 1.5,       // Giảm từ 2 xuống 1.5 để TP dễ đạt hơn
     };
   }
 

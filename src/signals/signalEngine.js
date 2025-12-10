@@ -29,11 +29,11 @@ class SignalEngine {
 
       // ATR Settings for Stop Loss
       atrPeriod: config.atrPeriod || 14,
-      atrMultiplierLong: config.atrMultiplierLong || 1.5,   // SL cho LONG (dưới entry)
-      atrMultiplierShort: config.atrMultiplierShort || 2.0, // SL cho SHORT (trên entry) - xa hơn vì giá hay quét lên
+      atrMultiplierLong: config.atrMultiplierLong || 2.5,   // SL cho LONG (dưới entry) - tăng từ 1.5 để SL rộng hơn
+      atrMultiplierShort: config.atrMultiplierShort || 2.5, // SL cho SHORT (trên entry) - tăng để SL rộng hơn
 
       // Risk Management
-      riskRewardRatio: config.riskRewardRatio || 2,
+      riskRewardRatio: config.riskRewardRatio || 1.5,       // Giảm từ 2 xuống 1.5 để TP dễ đạt hơn
       maxRiskPercent: config.maxRiskPercent || 2,
     };
   }
