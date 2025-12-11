@@ -2236,7 +2236,8 @@
         closeTime: new Date().toISOString(),
         pnl: pnl,
         pnlPercent: pnlPercent,
-        status: pnl >= 0 ? 'WIN' : 'LOSS'
+        status: pnl >= 0 ? 'WIN' : 'LOSS',
+        closeReason: 'Manual'
       };
 
       closedPositions.unshift(closedPosition);
@@ -2360,6 +2361,144 @@
       });
     }
 
+    // Edit SL/TP for open position
+    async function editPositionSLTP(id) {
+      const position = openPositions.find(p => p.id === id);
+      if (!position) return;
+
+      // Create custom modal for editing SL/TP
+      return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+          <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+              <span class="modal-icon">⚙️</span>
+              <h3>Chỉnh sửa SL/TP</h3>
+            </div>
+            <div class="modal-body">
+              <p style="margin-bottom: 15px;">
+                <strong>${position.symbol}</strong> -
+                <span style="color: ${position.type === 'LONG' ? '#00ff88' : '#ff5252'}">${position.type}</span>
+                <br><small style="color: #888;">Entry: $${position.entryPrice.toLocaleString()}</small>
+              </p>
+              <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; color: #aaa; font-size: 0.9em;">🛑 Stop Loss</label>
+                <input type="number" id="edit-sl" value="${position.stopLoss || ''}" step="0.0001"
+                  style="width: 100%; padding: 12px; background: rgba(255,82,82,0.1); border: 1px solid rgba(255,82,82,0.3); border-radius: 8px; color: #ff5252; font-size: 1em;"
+                  placeholder="Nhập giá Stop Loss">
+              </div>
+              <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; color: #aaa; font-size: 0.9em;">✅ Take Profit</label>
+                <input type="number" id="edit-tp" value="${position.takeProfit || ''}" step="0.0001"
+                  style="width: 100%; padding: 12px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); border-radius: 8px; color: #00ff88; font-size: 1em;"
+                  placeholder="Nhập giá Take Profit">
+              </div>
+              <div id="edit-sltp-preview" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; font-size: 0.9em; color: #888;"></div>
+            </div>
+            <div class="modal-actions">
+              <button class="modal-btn modal-btn-cancel" id="edit-cancel">Hủy</button>
+              <button class="modal-btn modal-btn-confirm" id="edit-save">💾 Lưu thay đổi</button>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const slInput = overlay.querySelector('#edit-sl');
+        const tpInput = overlay.querySelector('#edit-tp');
+        const previewDiv = overlay.querySelector('#edit-sltp-preview');
+
+        // Update preview when inputs change
+        const updatePreview = () => {
+          const sl = parseFloat(slInput.value);
+          const tp = parseFloat(tpInput.value);
+          let slLoss = 0, tpProfit = 0;
+
+          if (sl && position.quantity) {
+            if (position.type === 'LONG') {
+              slLoss = (sl - position.entryPrice) * position.quantity;
+            } else {
+              slLoss = (position.entryPrice - sl) * position.quantity;
+            }
+          }
+
+          if (tp && position.quantity) {
+            if (position.type === 'LONG') {
+              tpProfit = (tp - position.entryPrice) * position.quantity;
+            } else {
+              tpProfit = (position.entryPrice - tp) * position.quantity;
+            }
+          }
+
+          previewDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between;">
+              <span>Lỗ nếu SL:</span>
+              <span style="color: #ff5252;">${slLoss ? slLoss.toFixed(2) + '$' : 'N/A'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+              <span>Lãi nếu TP:</span>
+              <span style="color: #00ff88;">${tpProfit ? '+' + tpProfit.toFixed(2) + '$' : 'N/A'}</span>
+            </div>
+          `;
+        };
+
+        slInput.addEventListener('input', updatePreview);
+        tpInput.addEventListener('input', updatePreview);
+        updatePreview();
+
+        // Focus SL input
+        setTimeout(() => slInput.focus(), 100);
+
+        const closeModal = (saved) => {
+          overlay.style.animation = 'fadeOut 0.2s ease-out forwards';
+          setTimeout(() => {
+            overlay.remove();
+            resolve(saved);
+          }, 200);
+        };
+
+        overlay.querySelector('#edit-cancel').onclick = () => closeModal(false);
+        overlay.querySelector('#edit-save').onclick = () => {
+          const newSL = parseFloat(slInput.value) || null;
+          const newTP = parseFloat(tpInput.value) || null;
+
+          // Update position
+          position.stopLoss = newSL;
+          position.takeProfit = newTP;
+          savePositions();
+          renderOpenPositions();
+
+          showToast({
+            type: 'success',
+            title: '✅ Đã cập nhật!',
+            details: [
+              { label: 'Symbol', value: position.symbol },
+              { label: 'Stop Loss', value: newSL ? '$' + newSL.toLocaleString() : 'Không đặt', class: 'short' },
+              { label: 'Take Profit', value: newTP ? '$' + newTP.toLocaleString() : 'Không đặt', class: 'long' }
+            ],
+            duration: 3000
+          });
+
+          closeModal(true);
+        };
+
+        // Close on overlay click
+        overlay.onclick = (e) => {
+          if (e.target === overlay) closeModal(false);
+        };
+
+        // Close on Escape
+        const handleEscape = (e) => {
+          if (e.key === 'Escape') {
+            document.removeEventListener('keydown', handleEscape);
+            closeModal(false);
+          }
+        };
+        document.addEventListener('keydown', handleEscape);
+      });
+    }
+
     // Render open positions
     function renderOpenPositions() {
       const container = document.getElementById('open-positions');
@@ -2422,6 +2561,7 @@
           </div>
           <div class="position-actions">
             <button class="btn-copy" onclick="copyPosition(${p.id})">📋 Copy</button>
+            <button class="btn-edit" onclick="editPositionSLTP(${p.id})" style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);">⚙️ SL/TP</button>
             <button class="btn-close-profit" onclick="closePosition(${p.id})">Đóng lệnh</button>
             <button class="btn-delete" onclick="deletePosition(${p.id})">Xóa</button>
           </div>
@@ -2461,6 +2601,7 @@
               <span class="position-symbol">${p.symbol}</span>
               <span class="signal-badge signal-${p.type.toLowerCase()}" style="font-size: 0.8em; padding: 3px 10px;">${p.type}</span>
               <span style="color: ${p.pnl >= 0 ? '#00ff88' : '#ff5252'}; font-size: 0.85em; margin-left: 10px;">${p.status}</span>
+              ${p.closeReason ? `<span style="background: ${p.closeReason === 'TP' ? 'rgba(0,255,136,0.2)' : p.closeReason === 'SL' ? 'rgba(255,82,82,0.2)' : 'rgba(255,193,7,0.2)'}; color: ${p.closeReason === 'TP' ? '#00ff88' : p.closeReason === 'SL' ? '#ff5252' : '#ffc107'}; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; margin-left: 8px;">${p.closeReason === 'TP' ? '🎯 Auto TP' : p.closeReason === 'SL' ? '🛑 Auto SL' : '✋ Manual'}</span>` : ''}
             </div>
             <div class="position-pnl ${p.pnl >= 0 ? 'profit' : 'loss'}">
               ${p.pnl >= 0 ? '+' : ''}$${p.pnl.toFixed(2)} (${p.pnlPercent >= 0 ? '+' : ''}${p.pnlPercent.toFixed(1)}%)
@@ -2516,9 +2657,66 @@
     }
 
     // Update P/L for all open positions
+    // Auto close position when hit SL/TP
+    async function autoClosePosition(position, closePrice, reason) {
+      const index = openPositions.findIndex(p => p.id === position.id);
+      if (index === -1) return;
+
+      // Calculate P/L
+      let pnl;
+      if (position.type === 'LONG') {
+        pnl = (closePrice - position.entryPrice) * position.quantity;
+      } else {
+        pnl = (position.entryPrice - closePrice) * position.quantity;
+      }
+
+      const pnlPercent = (pnl / position.margin) * 100;
+
+      // Move to closed positions
+      const closedPosition = {
+        ...position,
+        closePrice: closePrice,
+        closeTime: new Date().toISOString(),
+        pnl: pnl,
+        pnlPercent: pnlPercent,
+        status: pnl >= 0 ? 'WIN' : 'LOSS',
+        closeReason: reason // 'SL' or 'TP'
+      };
+
+      closedPositions.unshift(closedPosition);
+      openPositions.splice(index, 1);
+      savePositions();
+      renderOpenPositions();
+      renderClosedPositions();
+      updateStats();
+
+      // Show auto-close toast
+      const isTP = reason === 'TP';
+      showToast({
+        type: isTP ? 'success' : 'error',
+        title: isTP ? '🎯 Take Profit đã chạm!' : '🛑 Stop Loss đã chạm!',
+        details: [
+          { label: 'Symbol', value: position.symbol },
+          { label: 'Loại', value: position.type, class: position.type.toLowerCase() },
+          { label: 'Entry', value: '$' + position.entryPrice.toLocaleString() },
+          { label: isTP ? 'TP' : 'SL', value: '$' + closePrice.toLocaleString() },
+          { label: 'P/L', value: (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '$ (' + (pnlPercent >= 0 ? '+' : '') + pnlPercent.toFixed(2) + '%)', class: pnl >= 0 ? 'long' : 'short' }
+        ],
+        duration: 8000
+      });
+
+      // Play sound notification
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1jZWlrd3x/g4aGhYOBgX99e3p5eXl5eXl6e3x+gIKEhoeIiIiHhYOBf3x6eHZ1dHR0dHV2eHl8f4GDhoeIiYmJiIeGhIJ/fXp4dnRzc3NzdHV3eXx+gYOFh4iJiYmJiIeGhIJ/fXp4dnRzc3NzdHV3eXt+gYOFh4iJiYmJiIeGhIJ/fXp4dnRzc3Nz');
+        audio.volume = 0.5;
+        audio.play().catch(() => {});
+      } catch (e) {}
+    }
+
     async function updateAllPositionsPnL() {
       let totalUnrealizedPnL = 0;
       let totalMargin = 0;
+      const positionsToAutoClose = []; // Collect positions to auto close
 
       for (const position of openPositions) {
         try {
@@ -2536,6 +2734,32 @@
           }
 
           if (currentPrice) {
+            // Check SL/TP hit
+            const sl = position.stopLoss ? parseFloat(position.stopLoss) : null;
+            const tp = position.takeProfit ? parseFloat(position.takeProfit) : null;
+
+            if (position.type === 'LONG') {
+              // LONG: SL khi giá xuống dưới SL, TP khi giá lên trên TP
+              if (sl && currentPrice <= sl) {
+                positionsToAutoClose.push({ position, closePrice: sl, reason: 'SL' });
+                continue;
+              }
+              if (tp && currentPrice >= tp) {
+                positionsToAutoClose.push({ position, closePrice: tp, reason: 'TP' });
+                continue;
+              }
+            } else {
+              // SHORT: SL khi giá lên trên SL, TP khi giá xuống dưới TP
+              if (sl && currentPrice >= sl) {
+                positionsToAutoClose.push({ position, closePrice: sl, reason: 'SL' });
+                continue;
+              }
+              if (tp && currentPrice <= tp) {
+                positionsToAutoClose.push({ position, closePrice: tp, reason: 'TP' });
+                continue;
+              }
+            }
+
             let pnl;
 
             if (position.type === 'LONG') {
@@ -2564,6 +2788,11 @@
         } catch (e) {
           console.error(`Error fetching price for ${position.symbol}:`, e);
         }
+      }
+
+      // Auto close positions that hit SL/TP (do this after the loop to avoid modifying array while iterating)
+      for (const item of positionsToAutoClose) {
+        await autoClosePosition(item.position, item.closePrice, item.reason);
       }
 
       // Update totals
