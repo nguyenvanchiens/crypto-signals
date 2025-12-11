@@ -1033,6 +1033,9 @@
           <div class="label">Lệnh thắng / Thua</div>
           <div class="value" id="win-loss">0 / 0</div>
         </div>
+        <div class="stat-item" style="display: flex; align-items: center;">
+          <button onclick="clearAllHistory()" style="background: linear-gradient(135deg, #ff5252 0%, #d32f2f 100%); border: none; color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85em;">🗑️ Xóa tất cả</button>
+        </div>
       </div>
       <div id="closed-positions"></div>
     </div>
@@ -2207,16 +2210,50 @@
 
       const position = openPositions[index];
 
+      // Fetch current price automatically
       if (!closePrice) {
-        const result = await showPrompt(
-          'Đóng lệnh ' + position.symbol,
-          `Loại: <strong style="color: ${position.type === 'LONG' ? '#00ff88' : '#ff5252'}">${position.type}</strong><br>Entry: <strong>$${position.entryPrice.toLocaleString()}</strong>`,
-          'Nhập giá đóng lệnh:',
-          position.entryPrice
-        );
+        try {
+          let currentPrice;
+          if (IS_CLOUDFLARE) {
+            const priceData = await fetchBinancePrice(position.symbol);
+            currentPrice = priceData.price;
+          } else {
+            const response = await fetch(`${API_BASE}/api/price/${position.symbol}?market=futures`);
+            const data = await response.json();
+            if (data.success) currentPrice = data.data.price;
+          }
 
-        if (!result.confirmed || !result.value) return;
-        closePrice = result.value;
+          if (!currentPrice) {
+            showToast({
+              type: 'error',
+              title: 'Lỗi',
+              message: 'Không thể lấy giá hiện tại. Vui lòng thử lại.',
+              duration: 3000
+            });
+            return;
+          }
+
+          // Confirm close with current price
+          const result = await showConfirm(
+            'Đóng lệnh ' + position.symbol,
+            `Loại: <strong style="color: ${position.type === 'LONG' ? '#00ff88' : '#ff5252'}">${position.type}</strong><br>
+            Entry: <strong>$${position.entryPrice.toLocaleString()}</strong><br>
+            Giá hiện tại: <strong style="color: #ffc107;">$${currentPrice.toLocaleString()}</strong><br><br>
+            <small style="color: #888;">Lệnh sẽ được đóng ngay với giá thị trường hiện tại.</small>`,
+            true
+          );
+
+          if (!result.confirmed) return;
+          closePrice = currentPrice;
+        } catch (e) {
+          showToast({
+            type: 'error',
+            title: 'Lỗi',
+            message: 'Không thể lấy giá. Vui lòng thử lại.',
+            duration: 3000
+          });
+          return;
+        }
       }
 
       // Calculate P/L
@@ -2313,6 +2350,40 @@
         type: 'info',
         title: 'Đã xóa',
         message: `Đã xóa lệnh ${position.symbol} khỏi lịch sử.`,
+        duration: 3000
+      });
+    }
+
+    // Clear all history
+    async function clearAllHistory() {
+      if (closedPositions.length === 0) {
+        showToast({
+          type: 'info',
+          title: 'Thông báo',
+          message: 'Không có lịch sử để xóa.',
+          duration: 2000
+        });
+        return;
+      }
+
+      const result = await showConfirm(
+        '🗑️ Xóa toàn bộ lịch sử',
+        `Bạn có chắc muốn xóa <strong style="color: #ff5252;">${closedPositions.length}</strong> lệnh trong lịch sử?<br><br><small style="color: #888;">Hành động này không thể hoàn tác!</small>`,
+        true
+      );
+
+      if (!result.confirmed) return;
+
+      const count = closedPositions.length;
+      closedPositions = [];
+      savePositions();
+      renderClosedPositions();
+      updateStats();
+
+      showToast({
+        type: 'success',
+        title: '🗑️ Đã xóa!',
+        message: `Đã xóa ${count} lệnh khỏi lịch sử.`,
         duration: 3000
       });
     }
