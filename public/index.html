@@ -869,19 +869,377 @@
       to { width: 0%; }
     }
 
+    /* ===================== MOBILE RESPONSIVE ===================== */
     @media (max-width: 768px) {
+      .container {
+        padding: 10px;
+      }
+
+      header {
+        padding: 15px 0;
+        margin-bottom: 15px;
+      }
+
+      header h1 {
+        font-size: 1.5em;
+      }
+
+      header p {
+        font-size: 0.9em;
+      }
+
+      .tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 5px;
+        padding-bottom: 5px;
+      }
+
+      .tab {
+        padding: 10px 15px;
+        font-size: 0.85em;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
       .controls {
         flex-direction: column;
+        padding: 15px;
+        gap: 10px;
+      }
+
+      .control-group {
+        min-width: 100%;
+      }
+
+      select, input {
+        padding: 10px 12px;
+        font-size: 16px; /* Prevent zoom on iOS */
+      }
+
+      button {
+        padding: 12px 20px;
+        font-size: 0.95em;
+        width: 100%;
+      }
+
+      .signal-card {
+        padding: 15px;
+        border-radius: 12px;
       }
 
       .signal-header {
         flex-direction: column;
         text-align: center;
+        gap: 10px;
       }
 
+      .symbol-info {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .symbol-name {
+        font-size: 1.4em;
+      }
+
+      .price {
+        font-size: 1.2em;
+      }
+
+      .signal-badge {
+        padding: 8px 20px;
+        font-size: 1em;
+      }
+
+      .indicators-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      .indicator-box {
+        padding: 12px;
+      }
+
+      .indicator-box h4 {
+        font-size: 0.75em;
+      }
+
+      .indicator-box .value {
+        font-size: 1.1em;
+      }
+
+      .trade-setup {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        padding: 15px;
+      }
+
+      .trade-item .value {
+        font-size: 1em;
+      }
+
+      .trade-item label {
+        font-size: 0.75em;
+      }
+
+      .reasons {
+        padding: 12px;
+      }
+
+      .reasons li {
+        font-size: 0.9em;
+        padding: 6px 0;
+      }
+
+      /* Order Entry Mobile */
+      .order-entry {
+        padding: 15px !important;
+      }
+
+      .order-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+      }
+
+      .order-buttons {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .order-buttons button {
+        width: 100%;
+      }
+
+      /* Position Cards Mobile */
+      .position-card {
+        padding: 12px;
+      }
+
+      .position-header {
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+      }
+
+      .position-symbol {
+        font-size: 1.1em;
+      }
+
+      .position-pnl {
+        font-size: 1em;
+      }
+
+      .position-details {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px;
+      }
+
+      .position-details .label {
+        font-size: 0.7em;
+      }
+
+      .position-details .value {
+        font-size: 0.85em;
+      }
+
+      .position-actions {
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+      }
+
+      .position-actions button {
+        padding: 8px 12px;
+        font-size: 0.8em;
+        flex: 1;
+        min-width: 70px;
+      }
+
+      /* Stats Mobile */
+      .history-stats {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px;
+        padding: 15px;
+      }
+
+      .stat-item {
+        padding: 8px;
+      }
+
+      .stat-item .label {
+        font-size: 0.7em;
+      }
+
+      .stat-item .value {
+        font-size: 1em;
+      }
+
+      /* Calculator Mobile */
+      .position-calculator {
+        padding: 15px;
+      }
+
+      .calc-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      .calc-result {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        padding: 15px;
+      }
+
+      /* Multi Signal Scan Mobile */
       .mini-signal {
         grid-template-columns: 1fr;
         text-align: center;
+        padding: 12px;
+        gap: 8px;
+      }
+
+      .mini-signal .symbol {
+        font-size: 1em;
+      }
+
+      .mini-badge {
+        margin-top: 5px;
+      }
+
+      /* Toast Mobile */
+      .toast-container {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        top: auto;
+      }
+
+      .toast {
+        max-width: 100%;
+        font-size: 0.9em;
+      }
+
+      /* Modal Mobile */
+      .modal-overlay {
+        padding: 15px;
+        align-items: flex-end;
+      }
+
+      .modal {
+        max-width: 100% !important;
+        max-height: 85vh;
+        overflow-y: auto;
+        border-radius: 16px 16px 0 0;
+        margin-bottom: 0;
+      }
+
+      .modal-header h3 {
+        font-size: 1.1em;
+      }
+
+      .modal-body {
+        font-size: 0.95em;
+      }
+
+      .modal-body input {
+        font-size: 16px;
+      }
+
+      .modal-actions {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .modal-btn {
+        width: 100%;
+        padding: 14px;
+      }
+
+      /* Tabs Content */
+      .tab-content {
+        padding: 0;
+      }
+
+      /* Section Headers */
+      .section-header {
+        font-size: 1.1em;
+        padding: 12px;
+      }
+    }
+
+    /* Extra small devices (phones in portrait) */
+    @media (max-width: 400px) {
+      header h1 {
+        font-size: 1.3em;
+      }
+
+      .indicators-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .trade-setup {
+        grid-template-columns: 1fr;
+      }
+
+      .position-details {
+        grid-template-columns: 1fr !important;
+      }
+
+      .history-stats {
+        grid-template-columns: 1fr !important;
+      }
+
+      .order-grid {
+        grid-template-columns: 1fr !important;
+      }
+
+      .calc-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .calc-result {
+        grid-template-columns: 1fr;
+      }
+
+      .position-actions button {
+        min-width: 100%;
+      }
+    }
+
+    /* Landscape mode on mobile */
+    @media (max-width: 768px) and (orientation: landscape) {
+      .modal {
+        max-height: 90vh;
+        border-radius: 16px;
+      }
+
+      .modal-overlay {
+        align-items: center;
+      }
+    }
+
+    /* Touch-friendly improvements */
+    @media (hover: none) and (pointer: coarse) {
+      button, .tab, .mini-signal, select, input {
+        min-height: 44px; /* Apple's recommended touch target */
+      }
+
+      .position-actions button {
+        min-height: 40px;
+      }
+
+      button:hover {
+        transform: none;
+        box-shadow: none;
+      }
+
+      .tab:hover {
+        background: transparent;
+      }
+
+      .tab.active:hover {
+        background: linear-gradient(45deg, #00d9ff, #00ff88);
       }
     }
   </style>
