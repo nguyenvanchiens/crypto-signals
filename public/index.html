@@ -2044,6 +2044,8 @@
 
     // Symbol search functions
     function showSymbolList() {
+      // Xóa nội dung khi focus để hiển thị tất cả coin
+      document.getElementById('symbolSearch').value = '';
       filterSymbols();
       document.getElementById('symbolList').style.display = 'block';
     }
@@ -2082,8 +2084,7 @@
 
     function selectCoin(symbol) {
       document.getElementById('symbol').value = symbol;
-      document.getElementById('symbolSearch').value = '';
-      document.getElementById('selectedSymbol').textContent = symbol.replace('USDT', '/USDT');
+      document.getElementById('symbolSearch').value = symbol.replace('USDT', '/USDT');
       document.getElementById('symbolList').style.display = 'none';
       analyzeSignal();
     }
