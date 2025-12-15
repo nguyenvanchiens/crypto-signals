@@ -1910,6 +1910,10 @@
           <div class="label">Tổng margin</div>
           <div class="value" id="total-margin">$0.00</div>
         </div>
+        <div class="stat-item" style="display: flex; flex-direction: column; gap: 5px;">
+          <button id="sync-binance-btn" onclick="syncPositionsWithBinance()" style="background: linear-gradient(135deg, #f0b90b 0%, #d4a40a 100%); border: none; color: #000; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85em; font-weight: bold;">&#128260; Sync Binance</button>
+          <div style="font-size: 0.7em; color: #888;">Sync: <span id="last-sync-time">--:--</span></div>
+        </div>
       </div>
       <div id="open-positions"></div>
     </div>
@@ -4040,6 +4044,9 @@
             <button class="btn-close-profit" onclick="closePosition(${p.id})">Đóng lệnh</button>
             <button class="btn-delete" onclick="deletePosition(${p.id})">Xóa</button>
           </div>
+          <div class="position-actions" style="margin-top: 5px;">
+            <button onclick="closePositionOnBinance(${p.id})" style="flex: 1; background: linear-gradient(135deg, #f0b90b 0%, #d4a40a 100%); border: none; color: #000; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;">⚡ Dong lenh tren Binance</button>
+          </div>
         </div>
       `}).join('');
 
@@ -4634,6 +4641,10 @@
 
         showToast({ type: 'success', title: 'Ket noi thanh cong!', message: `So du: ${totalBalance.toFixed(2)} USDT` });
 
+        // Start auto sync after successful connection
+        syncPositionsWithBinance();
+        startAutoSync(30000);
+
       } catch (error) {
         binanceApiConfig.connected = false;
         binanceApiConfig.balance = null;
@@ -4696,6 +4707,228 @@
       document.getElementById('api-icon').innerHTML = '&#128274;';
 
       showToast({ type: 'info', title: 'Da xoa!', message: 'API Key da bi xoa khoi trinh duyet' });
+    }
+
+    // ===================== BINANCE POSITION SYNC =====================
+
+    // Fetch open positions from Binance
+    async function getBinancePositions() {
+      if (!binanceApiConfig.connected) {
+        return [];
+      }
+
+      try {
+        const positions = await binanceSignedRequest('GET', '/fapi/v2/positionRisk');
+        // Filter only positions with non-zero amount
+        return positions.filter(p => parseFloat(p.positionAmt) !== 0).map(p => ({
+          symbol: p.symbol,
+          positionAmt: parseFloat(p.positionAmt),
+          entryPrice: parseFloat(p.entryPrice),
+          markPrice: parseFloat(p.markPrice),
+          unrealizedProfit: parseFloat(p.unRealizedProfit),
+          liquidationPrice: parseFloat(p.liquidationPrice),
+          leverage: parseInt(p.leverage),
+          marginType: p.marginType,
+          side: parseFloat(p.positionAmt) > 0 ? 'LONG' : 'SHORT'
+        }));
+      } catch (error) {
+        console.error('Error fetching Binance positions:', error);
+        return [];
+      }
+    }
+
+    // Sync local positions with Binance
+    async function syncPositionsWithBinance() {
+      if (!binanceApiConfig.connected) {
+        showToast({ type: 'warning', title: 'Chua ket noi', message: 'Vui long ket noi Binance API truoc' });
+        return;
+      }
+
+      const syncBtn = document.getElementById('sync-binance-btn');
+      if (syncBtn) {
+        syncBtn.innerHTML = '&#8987; Dang dong bo...';
+        syncBtn.disabled = true;
+      }
+
+      try {
+        const binancePositions = await getBinancePositions();
+        let syncedCount = 0;
+        let closedCount = 0;
+
+        // Check each local position
+        for (let i = openPositions.length - 1; i >= 0; i--) {
+          const localPos = openPositions[i];
+          const binancePos = binancePositions.find(bp =>
+            bp.symbol === localPos.symbol &&
+            bp.side === localPos.type
+          );
+
+          if (!binancePos) {
+            // Position closed on Binance - close it locally too
+            const closedPosition = {
+              ...localPos,
+              closePrice: localPos.entryPrice, // We don't know exact close price
+              closeTime: new Date().toISOString(),
+              status: 'CLOSED_BY_BINANCE',
+              pnl: 0, // Unknown PnL
+              pnlPercent: 0
+            };
+            closedPositions.unshift(closedPosition);
+            openPositions.splice(i, 1);
+            closedCount++;
+          } else {
+            // Update position with current data from Binance
+            localPos.currentPrice = binancePos.markPrice;
+            localPos.unrealizedPnl = binancePos.unrealizedProfit;
+            localPos.liquidationPrice = binancePos.liquidationPrice;
+            syncedCount++;
+          }
+        }
+
+        // Check for positions on Binance that aren't tracked locally
+        const newPositions = [];
+        for (const bp of binancePositions) {
+          const localExists = openPositions.find(lp =>
+            lp.symbol === bp.symbol && lp.type === bp.side
+          );
+          if (!localExists) {
+            // New position opened directly on Binance
+            newPositions.push({
+              id: Date.now() + Math.random(),
+              symbol: bp.symbol,
+              type: bp.side,
+              margin: Math.abs(bp.positionAmt * bp.entryPrice / bp.leverage),
+              leverage: bp.leverage,
+              entryPrice: bp.entryPrice,
+              quantity: Math.abs(bp.positionAmt),
+              positionSize: Math.abs(bp.positionAmt * bp.entryPrice),
+              openTime: new Date().toISOString(),
+              status: 'OPEN_FROM_BINANCE',
+              currentPrice: bp.markPrice,
+              unrealizedPnl: bp.unrealizedProfit,
+              liquidationPrice: bp.liquidationPrice
+            });
+          }
+        }
+
+        // Add new positions from Binance
+        openPositions.push(...newPositions);
+
+        savePositions();
+        renderOpenPositions();
+        updatePnL();
+
+        // Update last sync time
+        const lastSyncEl = document.getElementById('last-sync-time');
+        if (lastSyncEl) {
+          lastSyncEl.textContent = new Date().toLocaleTimeString('vi-VN');
+        }
+
+        let message = '';
+        if (closedCount > 0) message += `${closedCount} lenh da dong. `;
+        if (newPositions.length > 0) message += `${newPositions.length} lenh moi tu Binance. `;
+        if (syncedCount > 0) message += `${syncedCount} lenh da cap nhat.`;
+        if (!message) message = 'Khong co thay doi.';
+
+        showToast({
+          type: closedCount > 0 || newPositions.length > 0 ? 'success' : 'info',
+          title: 'Dong bo hoan tat!',
+          message: message
+        });
+
+      } catch (error) {
+        showToast({ type: 'error', title: 'Loi dong bo', message: error.message });
+      } finally {
+        if (syncBtn) {
+          syncBtn.innerHTML = '&#128260; Sync Binance';
+          syncBtn.disabled = false;
+        }
+      }
+    }
+
+    // Auto sync interval
+    let autoSyncInterval = null;
+
+    function startAutoSync(intervalMs = 30000) {
+      if (autoSyncInterval) {
+        clearInterval(autoSyncInterval);
+      }
+      autoSyncInterval = setInterval(() => {
+        if (binanceApiConfig.connected && openPositions.length > 0) {
+          syncPositionsWithBinance();
+        }
+      }, intervalMs);
+    }
+
+    function stopAutoSync() {
+      if (autoSyncInterval) {
+        clearInterval(autoSyncInterval);
+        autoSyncInterval = null;
+      }
+    }
+
+    // Close position on Binance
+    async function closeBinancePosition(localPosition) {
+      if (!binanceApiConfig.connected) {
+        showToast({ type: 'error', title: 'Loi', message: 'Chua ket noi Binance API' });
+        return false;
+      }
+
+      try {
+        const side = localPosition.type === 'LONG' ? 'SELL' : 'BUY';
+        const symbolInfo = await getSymbolInfo(localPosition.symbol);
+        const quantity = roundQuantity(localPosition.quantity, symbolInfo.stepSize);
+
+        const result = await placeBinanceOrder(localPosition.symbol, side, quantity, 'MARKET');
+
+        showToast({
+          type: 'success',
+          title: 'Da dong lenh tren Binance!',
+          message: `${localPosition.symbol} ${localPosition.type} - Order ID: ${result.orderId}`
+        });
+
+        return true;
+      } catch (error) {
+        showToast({ type: 'error', title: 'Loi dong lenh', message: error.message });
+        return false;
+      }
+    }
+
+    // Wrapper function to close position on Binance by ID
+    async function closePositionOnBinance(positionId) {
+      const position = openPositions.find(p => p.id === positionId);
+      if (!position) {
+        showToast({ type: 'error', title: 'Loi', message: 'Khong tim thay lenh' });
+        return;
+      }
+
+      if (!binanceApiConfig.connected) {
+        showToast({ type: 'error', title: 'Loi', message: 'Chua ket noi Binance API. Click vao nut khoa de cau hinh.' });
+        return;
+      }
+
+      // Confirm before closing
+      const confirmed = await showConfirm(
+        'Xac nhan dong lenh tren Binance',
+        `Symbol: ${position.symbol}<br>` +
+        `Loai: ${position.type}<br>` +
+        `So luong: ${position.quantity.toFixed(6)}<br>` +
+        `<br><strong style="color: #ff5252;">Lenh se duoc DONG THAT tren Binance!</strong>`,
+        false
+      );
+
+      if (!confirmed.confirmed) return;
+
+      showToast({ type: 'info', title: 'Dang dong lenh...', message: 'Vui long doi...' });
+
+      const success = await closeBinancePosition(position);
+
+      if (success) {
+        // Also close local position
+        closePosition(positionId);
+        // Refresh balance
+        testApiConnection();
+      }
     }
 
     // Get symbol info for precision
@@ -4949,6 +5182,14 @@
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
       loadApiConfig();
+
+      // Start auto sync every 30 seconds if connected
+      setTimeout(() => {
+        if (binanceApiConfig.connected) {
+          syncPositionsWithBinance();
+          startAutoSync(30000);
+        }
+      }, 2000);
     });
   </script>
 </body>
