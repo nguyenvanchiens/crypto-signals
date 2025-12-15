@@ -2969,64 +2969,6 @@
             </div>
           </div>
 
-          <!-- Smart Money Analysis Section (chỉ hiện khi có data) -->
-          ${analysis.marketStructure ? `
-          <div class="smart-money-section" style="margin-top: 15px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-            <h4 style="margin: 0 0 10px; color: #ffd700;">📊 Smart Money Analysis</h4>
-            <div class="indicators-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
-              <div class="indicator-box">
-                <h4>Market Structure</h4>
-                <div class="value ${analysis.marketStructure.score > 0 ? 'bullish' : analysis.marketStructure.score < 0 ? 'bearish' : 'neutral'}">
-                  ${analysis.marketStructure.structure}
-                </div>
-                <div class="status" style="font-size: 0.75em;">${analysis.marketStructure.score > 0 ? 'HH+HL' : analysis.marketStructure.score < 0 ? 'LH+LL' : 'Sideway'}</div>
-              </div>
-
-              ${analysis.volumeAnalysis ? `
-              <div class="indicator-box">
-                <h4>Volume</h4>
-                <div class="value ${analysis.volumeAnalysis.score > 0 ? 'bullish' : analysis.volumeAnalysis.score < 0 ? 'bearish' : 'neutral'}">
-                  ${analysis.volumeAnalysis.volumeRatio || 'N/A'}x
-                </div>
-                <div class="status">${analysis.volumeAnalysis.signal}</div>
-              </div>
-              ` : ''}
-
-              ${analysis.orderBlocks ? `
-              <div class="indicator-box">
-                <h4>Order Block</h4>
-                <div class="value ${analysis.orderBlocks.score > 0 ? 'bullish' : analysis.orderBlocks.score < 0 ? 'bearish' : 'neutral'}">
-                  ${analysis.orderBlocks.signal}
-                </div>
-                <div class="status">${analysis.orderBlocks.nearestBlock ? 'Gần vùng' : 'Không có'}</div>
-              </div>
-              ` : ''}
-
-              ${analysis.pullback ? `
-              <div class="indicator-box">
-                <h4>Pullback</h4>
-                <div class="value ${analysis.pullback.score > 0 ? 'bullish' : analysis.pullback.score < 0 ? 'bearish' : 'neutral'}">
-                  ${analysis.pullback.signal || 'NONE'}
-                </div>
-                <div class="status">${analysis.pullback.score !== 0 ? 'Entry tốt' : 'Chưa có'}</div>
-              </div>
-              ` : ''}
-
-              ${analysis.mtf ? `
-              <div class="indicator-box" style="grid-column: span 2;">
-                <h4>Multi-Timeframe</h4>
-                <div class="value ${analysis.mtf.confirmed ? 'bullish' : analysis.mtf.signal === 'NEUTRAL' ? 'neutral' : 'bearish'}">
-                  ${analysis.mtf.signal} ${analysis.mtf.confirmed ? '✅' : analysis.mtf.signal !== 'NEUTRAL' ? '⚠️' : ''}
-                </div>
-                <div class="status" style="font-size: 0.75em;">
-                  ${analysis.mtf.results.map(r => `${r.interval}: ${r.trend}`).join(' | ')}
-                </div>
-              </div>
-              ` : ''}
-            </div>
-          </div>
-          ` : ''}
-
           ${signal.action !== 'WAIT' ? `
           <div class="trade-setup">
             <div class="trade-item">

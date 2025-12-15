@@ -65,6 +65,9 @@ class SignalEngine {
     // Phân tích từng chỉ báo
     const analysis = this.analyzeIndicators(latestIndicators, currentPrice);
 
+    // Smart Money Analysis
+    const smartMoney = this.analyzeSmartMoney(candles, volumes, currentPrice);
+
     // Tính điểm tổng hợp và tạo tín hiệu
     const signal = this.generateSignal(analysis, currentPrice, candles, indicators);
 
@@ -74,8 +77,259 @@ class SignalEngine {
       currentPrice: currentPrice,
       indicators: latestIndicators,
       analysis: analysis,
-      signal: signal
+      signal: signal,
+      marketStructure: smartMoney.marketStructure,
+      volumeConfirmation: smartMoney.volumeConfirmation,
+      orderBlock: smartMoney.orderBlock,
+      pullback: smartMoney.pullback
     };
+  }
+
+  /**
+   * Smart Money Analysis - Phân tích theo phương pháp SMC
+   */
+  analyzeSmartMoney(candles, volumes, currentPrice) {
+    const result = {
+      marketStructure: this.analyzeMarketStructure(candles),
+      volumeConfirmation: this.analyzeVolumeConfirmation(candles, volumes),
+      orderBlock: this.findOrderBlocks(candles, currentPrice),
+      pullback: this.analyzePullback(candles, currentPrice)
+    };
+    return result;
+  }
+
+  /**
+   * Phân tích Market Structure (HH, HL, LH, LL)
+   */
+  analyzeMarketStructure(candles) {
+    if (candles.length < 20) {
+      return { trend: 'UNKNOWN', pattern: 'N/A', score: 0 };
+    }
+
+    const recentCandles = candles.slice(-20);
+    const swingPoints = [];
+
+    // Tìm swing highs và swing lows
+    for (let i = 2; i < recentCandles.length - 2; i++) {
+      const curr = recentCandles[i];
+      const prev1 = recentCandles[i - 1];
+      const prev2 = recentCandles[i - 2];
+      const next1 = recentCandles[i + 1];
+      const next2 = recentCandles[i + 2];
+
+      // Swing High
+      if (curr.high > prev1.high && curr.high > prev2.high &&
+          curr.high > next1.high && curr.high > next2.high) {
+        swingPoints.push({ type: 'HIGH', price: curr.high, index: i });
+      }
+      // Swing Low
+      if (curr.low < prev1.low && curr.low < prev2.low &&
+          curr.low < next1.low && curr.low < next2.low) {
+        swingPoints.push({ type: 'LOW', price: curr.low, index: i });
+      }
+    }
+
+    if (swingPoints.length < 4) {
+      return { trend: 'SIDEWAYS', pattern: 'Không đủ swing points', score: 0 };
+    }
+
+    // Phân tích pattern
+    const lastPoints = swingPoints.slice(-4);
+    const highs = lastPoints.filter(p => p.type === 'HIGH').map(p => p.price);
+    const lows = lastPoints.filter(p => p.type === 'LOW').map(p => p.price);
+
+    let trend = 'SIDEWAYS';
+    let pattern = '';
+    let score = 0;
+
+    if (highs.length >= 2 && lows.length >= 2) {
+      const isHH = highs[highs.length - 1] > highs[highs.length - 2];
+      const isHL = lows[lows.length - 1] > lows[lows.length - 2];
+      const isLH = highs[highs.length - 1] < highs[highs.length - 2];
+      const isLL = lows[lows.length - 1] < lows[lows.length - 2];
+
+      if (isHH && isHL) {
+        trend = 'UPTREND';
+        pattern = 'HH+HL';
+        score = 2;
+      } else if (isLH && isLL) {
+        trend = 'DOWNTREND';
+        pattern = 'LH+LL';
+        score = -2;
+      } else if (isHH && isLL) {
+        trend = 'SIDEWAYS';
+        pattern = 'HH+LL (Expanding)';
+        score = 0;
+      } else if (isLH && isHL) {
+        trend = 'SIDEWAYS';
+        pattern = 'LH+HL (Contracting)';
+        score = 0;
+      }
+    }
+
+    return { trend, pattern, score, swingPoints: swingPoints.slice(-4) };
+  }
+
+  /**
+   * Phân tích Volume Confirmation
+   */
+  analyzeVolumeConfirmation(candles, volumes) {
+    if (volumes.length < 20) {
+      return { ratio: 0, signal: 'N/A', score: 0 };
+    }
+
+    const recentVolumes = volumes.slice(-20);
+    const avgVolume = recentVolumes.reduce((a, b) => a + b, 0) / recentVolumes.length;
+    const currentVolume = volumes[volumes.length - 1];
+    const ratio = currentVolume / avgVolume;
+
+    let signal = 'NORMAL';
+    let score = 0;
+    let description = '';
+
+    if (ratio >= 2) {
+      signal = 'VERY_HIGH';
+      score = 2;
+      description = 'Volume rất cao - Xác nhận mạnh';
+    } else if (ratio >= 1.5) {
+      signal = 'HIGH';
+      score = 1;
+      description = 'Volume cao - Có xác nhận';
+    } else if (ratio < 0.5) {
+      signal = 'LOW';
+      score = -1;
+      description = 'Volume thấp - Thiếu xác nhận';
+    } else {
+      description = 'Volume bình thường';
+    }
+
+    return { ratio: ratio.toFixed(2), signal, score, description, avgVolume, currentVolume };
+  }
+
+  /**
+   * Tìm Order Blocks
+   */
+  findOrderBlocks(candles, currentPrice) {
+    if (candles.length < 30) {
+      return { type: 'NONE', zone: null, score: 0 };
+    }
+
+    const recentCandles = candles.slice(-30);
+    let bullishOB = null;
+    let bearishOB = null;
+
+    // Tìm Bullish Order Block (nến giảm mạnh trước khi tăng mạnh)
+    for (let i = 5; i < recentCandles.length - 3; i++) {
+      const candle = recentCandles[i];
+      const nextCandles = recentCandles.slice(i + 1, i + 4);
+
+      // Bearish candle followed by strong bullish move
+      if (candle.close < candle.open) {
+        const moveUp = nextCandles.some(c => c.close > candle.high * 1.01);
+        if (moveUp && currentPrice > candle.low && currentPrice < candle.high * 1.05) {
+          bullishOB = { high: candle.high, low: candle.low, index: i };
+        }
+      }
+    }
+
+    // Tìm Bearish Order Block (nến tăng mạnh trước khi giảm mạnh)
+    for (let i = 5; i < recentCandles.length - 3; i++) {
+      const candle = recentCandles[i];
+      const nextCandles = recentCandles.slice(i + 1, i + 4);
+
+      // Bullish candle followed by strong bearish move
+      if (candle.close > candle.open) {
+        const moveDown = nextCandles.some(c => c.close < candle.low * 0.99);
+        if (moveDown && currentPrice < candle.high && currentPrice > candle.low * 0.95) {
+          bearishOB = { high: candle.high, low: candle.low, index: i };
+        }
+      }
+    }
+
+    if (bullishOB && (!bearishOB || bullishOB.index > bearishOB.index)) {
+      return {
+        type: 'BULLISH',
+        zone: bullishOB,
+        score: 2,
+        description: 'Giá trong vùng Bullish OB - Hỗ trợ LONG'
+      };
+    } else if (bearishOB) {
+      return {
+        type: 'BEARISH',
+        zone: bearishOB,
+        score: -2,
+        description: 'Giá trong vùng Bearish OB - Hỗ trợ SHORT'
+      };
+    }
+
+    return { type: 'NONE', zone: null, score: 0, description: 'Không có Order Block gần' };
+  }
+
+  /**
+   * Phân tích Pullback
+   */
+  analyzePullback(candles, currentPrice) {
+    if (candles.length < 20) {
+      return { type: 'NONE', depth: 0, score: 0 };
+    }
+
+    const recentCandles = candles.slice(-20);
+    const highs = recentCandles.map(c => c.high);
+    const lows = recentCandles.map(c => c.low);
+
+    const recentHigh = Math.max(...highs);
+    const recentLow = Math.min(...lows);
+    const range = recentHigh - recentLow;
+
+    if (range === 0) {
+      return { type: 'NONE', depth: 0, score: 0 };
+    }
+
+    // Tính độ sâu pullback từ high/low gần nhất
+    const distanceFromHigh = recentHigh - currentPrice;
+    const distanceFromLow = currentPrice - recentLow;
+
+    let type = 'NONE';
+    let depth = 0;
+    let score = 0;
+    let description = '';
+
+    // Pullback trong uptrend (giá giảm từ high)
+    if (distanceFromHigh > distanceFromLow) {
+      depth = (distanceFromHigh / range) * 100;
+      if (depth >= 38.2 && depth <= 61.8) {
+        type = 'BULLISH_PULLBACK';
+        score = 2;
+        description = `Pullback ${depth.toFixed(1)}% - Vùng Fibonacci hỗ trợ LONG`;
+      } else if (depth >= 23.6 && depth < 38.2) {
+        type = 'SHALLOW_PULLBACK';
+        score = 1;
+        description = `Pullback nông ${depth.toFixed(1)}%`;
+      } else if (depth > 61.8) {
+        type = 'DEEP_PULLBACK';
+        score = -1;
+        description = `Pullback sâu ${depth.toFixed(1)}% - Cẩn thận đảo chiều`;
+      }
+    }
+    // Pullback trong downtrend (giá tăng từ low)
+    else {
+      depth = (distanceFromLow / range) * 100;
+      if (depth >= 38.2 && depth <= 61.8) {
+        type = 'BEARISH_PULLBACK';
+        score = -2;
+        description = `Pullback ${depth.toFixed(1)}% - Vùng Fibonacci hỗ trợ SHORT`;
+      } else if (depth >= 23.6 && depth < 38.2) {
+        type = 'SHALLOW_PULLBACK';
+        score = -1;
+        description = `Pullback nông ${depth.toFixed(1)}%`;
+      } else if (depth > 61.8) {
+        type = 'DEEP_PULLBACK';
+        score = 1;
+        description = `Pullback sâu ${depth.toFixed(1)}% - Có thể đảo chiều`;
+      }
+    }
+
+    return { type, depth: depth.toFixed(1), score, description };
   }
 
   /**
