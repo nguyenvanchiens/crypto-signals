@@ -1910,7 +1910,7 @@
           <div class="label">Tổng margin</div>
           <div class="value" id="total-margin">$0.00</div>
         </div>
-        <div class="stat-item" style="display: flex; flex-direction: column; gap: 5px;">
+        <div class="stat-item admin-only" style="display: none; flex-direction: column; gap: 5px;">
           <button id="sync-binance-btn" onclick="syncPositionsWithBinance()" style="background: linear-gradient(135deg, #f0b90b 0%, #d4a40a 100%); border: none; color: #000; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85em; font-weight: bold;">&#128260; Sync Binance</button>
           <div style="font-size: 0.7em; color: #888;">Sync: <span id="last-sync-time">--:--</span></div>
         </div>
@@ -3301,12 +3301,12 @@
               <button class="btn-long" onclick="openPosition('LONG')">Luu LONG (Local)</button>
               <button class="btn-short" onclick="openPosition('SHORT')">Luu SHORT (Local)</button>
             </div>
-            <div class="order-buttons" style="margin-top: 10px;">
+            <div class="order-buttons admin-only" style="margin-top: 10px; display: ${isAdminMode ? 'flex' : 'none'};">
               <button class="btn-trade-binance" onclick="openBinancePosition('${signal.action}')">
                 <span style="font-size: 1.2em;">&#9889;</span> VAO LENH ${signal.action} TREN BINANCE
               </button>
             </div>
-            <div style="text-align: center; margin-top: 10px; font-size: 0.8em; color: #888;">
+            <div class="admin-only" style="text-align: center; margin-top: 10px; font-size: 0.8em; color: #888; display: ${isAdminMode ? 'block' : 'none'};">
               Luu local: chi theo doi, khong giao dich that<br>
               Vao lenh Binance: dat lenh THAT tren Binance (can cau hinh API)
             </div>
@@ -4044,9 +4044,9 @@
             <button class="btn-close-profit" onclick="closePosition(${p.id})">Đóng lệnh</button>
             <button class="btn-delete" onclick="deletePosition(${p.id})">Xóa</button>
           </div>
-          <div class="position-actions" style="margin-top: 5px;">
+          ${isAdminMode ? `<div class="position-actions" style="margin-top: 5px;">
             <button onclick="closePositionOnBinance(${p.id})" style="flex: 1; background: linear-gradient(135deg, #f0b90b 0%, #d4a40a 100%); border: none; color: #000; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;">⚡ Dong lenh tren Binance</button>
-          </div>
+          </div>` : ''}
         </div>
       `}).join('');
 
@@ -4376,8 +4376,8 @@
     </div>
   </div>
 
-  <!-- Binance API Config Button -->
-  <button class="api-config-btn" id="api-config-btn" onclick="openApiConfig()" title="Cau hinh Binance API">
+  <!-- Binance API Config Button (Admin Only) -->
+  <button class="api-config-btn admin-only" id="api-config-btn" onclick="openApiConfig()" title="Cau hinh Binance API" style="display: none;">
     <span id="api-icon">&#128274;</span>
   </button>
 
@@ -4489,6 +4489,52 @@
   </script>
 
   <script>
+    // ===================== ADMIN MODE (Secret Password) =====================
+    const ADMIN_SECRET_KEY = 'chiennv1';
+    let isAdminMode = false;
+
+    // Check if admin mode from localStorage or URL
+    function checkAdminMode() {
+      // Check URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get('key');
+
+      // Check localStorage
+      const savedKey = localStorage.getItem('admin_key');
+
+      if (urlKey === ADMIN_SECRET_KEY) {
+        isAdminMode = true;
+        localStorage.setItem('admin_key', ADMIN_SECRET_KEY);
+        // Remove key from URL to hide it
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else if (savedKey === ADMIN_SECRET_KEY) {
+        isAdminMode = true;
+      }
+
+      return isAdminMode;
+    }
+
+    // Prompt for admin password
+    function promptAdminPassword() {
+      const key = prompt('Nhap mat khau admin:');
+      if (key === ADMIN_SECRET_KEY) {
+        isAdminMode = true;
+        localStorage.setItem('admin_key', ADMIN_SECRET_KEY);
+        showBinanceFeatures();
+        showToast({ type: 'success', title: 'Admin Mode', message: 'Da mo khoa tinh nang Binance Trading!' });
+      } else if (key !== null) {
+        showToast({ type: 'error', title: 'Sai mat khau', message: 'Mat khau khong dung!' });
+      }
+    }
+
+    // Show/Hide Binance features based on admin mode
+    function showBinanceFeatures() {
+      const elements = document.querySelectorAll('.admin-only');
+      elements.forEach(el => {
+        el.style.display = isAdminMode ? '' : 'none';
+      });
+    }
+
     // ===================== BINANCE TRADING SERVICE (Client-side) =====================
 
     const BINANCE_LIVE_URL = 'https://fapi.binance.com';
@@ -5181,11 +5227,15 @@
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
+      // Check admin mode first
+      checkAdminMode();
+      showBinanceFeatures();
+
       loadApiConfig();
 
-      // Start auto sync every 30 seconds if connected
+      // Start auto sync every 30 seconds if connected (only if admin)
       setTimeout(() => {
-        if (binanceApiConfig.connected) {
+        if (isAdminMode && binanceApiConfig.connected) {
           syncPositionsWithBinance();
           startAutoSync(30000);
         }
