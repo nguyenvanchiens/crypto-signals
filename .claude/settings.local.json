@@ -11,7 +11,8 @@
       "Bash(timeout /t)",
       "Bash(powershell -Command \"Stop-Process -Id 116804 -Force; Stop-Process -Id 12228 -Force\")",
       "Bash(powershell -Command:*)",
-      "Bash(npx wrangler deploy)"
+      "Bash(npx wrangler deploy)",
+      "Bash(copy \"C:\\Users\\admin\\Downloads\\photo_2025-12-15_14-12-29.jpg\" \"d:\\templateAi\\tradingChart\\public\\donate-qr.jpg\")"
     ],
     "deny": [],
     "ask": []

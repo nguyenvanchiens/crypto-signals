@@ -959,6 +959,204 @@
       color: #1a1a2e;
     }
 
+    /* ===================== DONATE BUTTON & MODAL ===================== */
+    .donate-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .donate-label {
+      background: linear-gradient(135deg, #ff6b6b, #feca57);
+      color: #1a1a2e;
+      padding: 8px 15px;
+      border-radius: 20px;
+      font-size: 0.85em;
+      font-weight: bold;
+      white-space: nowrap;
+      box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+      animation: slideIn 0.5s ease, shake 3s ease-in-out infinite 2s;
+      cursor: pointer;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+      20%, 40%, 60%, 80% { transform: translateX(2px); }
+    }
+
+    .donate-float-btn {
+      width: 55px;
+      height: 55px;
+      background: linear-gradient(135deg, #ff6b6b, #feca57);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6em;
+      box-shadow: 0 4px 20px rgba(255, 107, 107, 0.5);
+      transition: all 0.3s ease;
+      animation: pulse-donate 2s infinite, bounce 1s ease-in-out infinite 3s;
+      position: relative;
+    }
+
+    .donate-float-btn::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 107, 107, 0.6);
+      animation: ripple 1.5s infinite;
+    }
+
+    @keyframes ripple {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .donate-float-btn:hover {
+      transform: scale(1.15) rotate(10deg);
+      box-shadow: 0 8px 30px rgba(255, 107, 107, 0.7);
+    }
+
+    .donate-float-btn:hover::after {
+      animation: none;
+    }
+
+    @keyframes pulse-donate {
+      0%, 100% { box-shadow: 0 4px 20px rgba(255, 107, 107, 0.5); }
+      50% { box-shadow: 0 4px 35px rgba(255, 107, 107, 0.8); }
+    }
+
+    .donate-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: #00ff88;
+      color: #1a1a2e;
+      font-size: 0.5em;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: bold;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    .donate-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10001;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .donate-modal-overlay.active {
+      display: flex;
+    }
+
+    .donate-modal {
+      background: linear-gradient(145deg, #1e1e2e, #252540);
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 380px;
+      width: 90%;
+      text-align: center;
+      position: relative;
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .donate-modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 1.5em;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .donate-modal-close:hover {
+      color: #fff;
+    }
+
+    .donate-title {
+      font-size: 1.3em;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #ff6b6b, #feca57);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .donate-subtitle {
+      color: #888;
+      font-size: 0.9em;
+      margin-bottom: 20px;
+    }
+
+    .donate-qr-container {
+      background: #fff;
+      padding: 10px;
+      border-radius: 15px;
+      display: inline-block;
+      margin-bottom: 15px;
+    }
+
+    .donate-qr-container img {
+      width: 220px;
+      height: auto;
+      border-radius: 10px;
+    }
+
+    .donate-info {
+      color: #aaa;
+      font-size: 0.85em;
+      line-height: 1.6;
+    }
+
+    .donate-info strong {
+      color: #feca57;
+    }
+
+    .donate-thanks {
+      margin-top: 15px;
+      padding: 10px;
+      background: rgba(0, 255, 136, 0.1);
+      border-radius: 10px;
+      color: #00ff88;
+      font-size: 0.85em;
+    }
+
     /* ===================== MOBILE RESPONSIVE ===================== */
     @media (max-width: 768px) {
       .container {
@@ -3964,5 +4162,53 @@
       </div>
     </div>
   </div>
+
+  <!-- Donate Float Button -->
+  <div class="donate-container" onclick="openDonate()">
+    <div class="donate-label">Ung ho tac gia</div>
+    <button class="donate-float-btn" title="Mua tac gia ly cafe">
+      <span>&#9749;</span>
+      <span class="donate-badge">NEW</span>
+    </button>
+  </div>
+
+  <!-- Donate Modal -->
+  <div id="donate-modal-overlay" class="donate-modal-overlay" onclick="closeDonate(event)">
+    <div class="donate-modal" onclick="event.stopPropagation()">
+      <button class="donate-modal-close" onclick="closeDonate()">&times;</button>
+      <div class="donate-title">Mua tac gia ly cafe</div>
+      <div class="donate-subtitle">Trade co loi? Ung ho de phat trien them tinh nang moi nhe!</div>
+      <div class="donate-qr-container">
+        <img src="donate-qr.jpg" alt="QR Donate Techcombank">
+      </div>
+      <div class="donate-info">
+        <strong>Techcombank</strong><br>
+        Quet ma QR bang app ngan hang bat ky
+      </div>
+      <div class="donate-thanks">
+        Cam on ban da ung ho! Chuc ban trade thanh cong!
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Donate modal functions
+    function openDonate() {
+      document.getElementById('donate-modal-overlay').classList.add('active');
+    }
+
+    function closeDonate(event) {
+      if (!event || event.target.id === 'donate-modal-overlay' || event.target.classList.contains('donate-modal-close')) {
+        document.getElementById('donate-modal-overlay').classList.remove('active');
+      }
+    }
+
+    // Close donate modal on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeDonate();
+      }
+    });
+  </script>
 </body>
 </html>
