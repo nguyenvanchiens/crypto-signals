@@ -959,6 +959,261 @@
       color: #1a1a2e;
     }
 
+    /* ===================== BINANCE API CONFIG ===================== */
+    .api-config-btn {
+      position: fixed;
+      bottom: 90px;
+      right: 20px;
+      z-index: 1000;
+      background: linear-gradient(135deg, #f0b90b, #d4a00a);
+      border: none;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3em;
+      box-shadow: 0 4px 15px rgba(240, 185, 11, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    .api-config-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 25px rgba(240, 185, 11, 0.6);
+    }
+
+    .api-config-btn.connected {
+      background: linear-gradient(135deg, #00c853, #00e676);
+      box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4);
+    }
+
+    .api-config-btn.connected:hover {
+      box-shadow: 0 6px 25px rgba(0, 200, 83, 0.6);
+    }
+
+    .api-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10002;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .api-modal-overlay.active {
+      display: flex;
+    }
+
+    .api-modal {
+      background: linear-gradient(145deg, #1e1e2e, #252540);
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 450px;
+      width: 90%;
+      position: relative;
+      border: 1px solid rgba(240, 185, 11, 0.3);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .api-modal h3 {
+      color: #f0b90b;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .api-modal .subtitle {
+      color: #888;
+      font-size: 0.85em;
+      margin-bottom: 20px;
+    }
+
+    .api-input-group {
+      margin-bottom: 15px;
+    }
+
+    .api-input-group label {
+      display: block;
+      color: #aaa;
+      font-size: 0.9em;
+      margin-bottom: 5px;
+    }
+
+    .api-input-group input {
+      width: 100%;
+      padding: 12px 15px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.95em;
+    }
+
+    .api-input-group input:focus {
+      border-color: #f0b90b;
+      outline: none;
+    }
+
+    .api-warning {
+      background: rgba(255, 193, 7, 0.1);
+      border: 1px solid rgba(255, 193, 7, 0.3);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 15px;
+      font-size: 0.85em;
+      color: #ffc107;
+    }
+
+    .api-warning strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .api-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 0.9em;
+    }
+
+    .api-status.connected {
+      background: rgba(0, 200, 83, 0.1);
+      border: 1px solid rgba(0, 200, 83, 0.3);
+      color: #00c853;
+    }
+
+    .api-status.disconnected {
+      background: rgba(255, 82, 82, 0.1);
+      border: 1px solid rgba(255, 82, 82, 0.3);
+      color: #ff5252;
+    }
+
+    .api-balance {
+      background: rgba(0, 217, 255, 0.1);
+      border: 1px solid rgba(0, 217, 255, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+
+    .api-balance-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .api-balance-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .api-balance-label {
+      color: #888;
+    }
+
+    .api-balance-value {
+      font-weight: bold;
+      color: #00d9ff;
+    }
+
+    .api-modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 1.5em;
+      cursor: pointer;
+    }
+
+    .api-modal-close:hover {
+      color: #fff;
+    }
+
+    .api-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .api-buttons button {
+      flex: 1;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-api-save {
+      background: linear-gradient(135deg, #f0b90b, #d4a00a);
+      border: none;
+      color: #1a1a2e;
+    }
+
+    .btn-api-save:hover {
+      box-shadow: 0 5px 20px rgba(240, 185, 11, 0.4);
+    }
+
+    .btn-api-clear {
+      background: transparent;
+      border: 1px solid #ff5252;
+      color: #ff5252;
+    }
+
+    .btn-api-clear:hover {
+      background: rgba(255, 82, 82, 0.1);
+    }
+
+    .btn-api-test {
+      background: linear-gradient(135deg, #00d9ff, #0099cc);
+      border: none;
+      color: #1a1a2e;
+    }
+
+    .btn-api-test:hover {
+      box-shadow: 0 5px 20px rgba(0, 217, 255, 0.4);
+    }
+
+    /* Trading Button in Signal */
+    .btn-trade-binance {
+      background: linear-gradient(135deg, #f0b90b, #d4a00a) !important;
+      color: #1a1a2e !important;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-trade-binance:hover {
+      box-shadow: 0 5px 20px rgba(240, 185, 11, 0.5) !important;
+    }
+
+    .btn-trade-binance:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .testnet-badge {
+      background: #ff9800;
+      color: #1a1a2e;
+      font-size: 0.7em;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-left: 5px;
+    }
+
     /* ===================== DONATE BUTTON & MODAL ===================== */
     .donate-container {
       position: fixed;
@@ -3039,8 +3294,17 @@
               </div>
             </div>
             <div class="order-buttons">
-              <button class="btn-long" onclick="openPosition('LONG')">Mở LONG</button>
-              <button class="btn-short" onclick="openPosition('SHORT')">Mở SHORT</button>
+              <button class="btn-long" onclick="openPosition('LONG')">Luu LONG (Local)</button>
+              <button class="btn-short" onclick="openPosition('SHORT')">Luu SHORT (Local)</button>
+            </div>
+            <div class="order-buttons" style="margin-top: 10px;">
+              <button class="btn-trade-binance" onclick="openBinancePosition('${signal.action}')">
+                <span style="font-size: 1.2em;">&#9889;</span> VAO LENH ${signal.action} TREN BINANCE
+              </button>
+            </div>
+            <div style="text-align: center; margin-top: 10px; font-size: 0.8em; color: #888;">
+              Luu local: chi theo doi, khong giao dich that<br>
+              Vao lenh Binance: dat lenh THAT tren Binance (can cau hinh API)
             </div>
           </div>
           ` : ''}
@@ -4105,6 +4369,69 @@
     </div>
   </div>
 
+  <!-- Binance API Config Button -->
+  <button class="api-config-btn" id="api-config-btn" onclick="openApiConfig()" title="Cau hinh Binance API">
+    <span id="api-icon">&#128274;</span>
+  </button>
+
+  <!-- Binance API Config Modal -->
+  <div id="api-modal-overlay" class="api-modal-overlay" onclick="closeApiConfig(event)">
+    <div class="api-modal" onclick="event.stopPropagation()">
+      <button class="api-modal-close" onclick="closeApiConfig()">&times;</button>
+      <h3><span>&#128274;</span> Binance API Config</h3>
+      <div class="subtitle">Ket noi tai khoan Binance de giao dich truc tiep</div>
+
+      <div class="api-warning">
+        <strong>Luu y bao mat:</strong>
+        API Key duoc luu LOCAL tren trinh duyet cua ban, KHONG gui len server. Chi cap quyen FUTURES, khong cap quyen rut tien.
+      </div>
+
+      <div id="api-status-display" class="api-status disconnected">
+        <span>&#9679;</span> Chua ket noi
+      </div>
+
+      <div id="api-balance-display" class="api-balance" style="display: none;">
+        <div class="api-balance-row">
+          <span class="api-balance-label">Tong so du:</span>
+          <span class="api-balance-value" id="api-total-balance">0.00 USDT</span>
+        </div>
+        <div class="api-balance-row">
+          <span class="api-balance-label">Kha dung:</span>
+          <span class="api-balance-value" id="api-available-balance">0.00 USDT</span>
+        </div>
+        <div class="api-balance-row">
+          <span class="api-balance-label">PnL chua thuc hien:</span>
+          <span class="api-balance-value" id="api-unrealized-pnl">0.00 USDT</span>
+        </div>
+      </div>
+
+      <div class="api-input-group">
+        <label>API Key</label>
+        <input type="text" id="api-key-input" placeholder="Nhap Binance API Key">
+      </div>
+
+      <div class="api-input-group">
+        <label>Secret Key</label>
+        <input type="password" id="api-secret-input" placeholder="Nhap Binance Secret Key">
+      </div>
+
+      <div class="api-input-group">
+        <label style="display: flex; align-items: center; gap: 10px;">
+          <input type="checkbox" id="api-testnet-checkbox" style="width: auto;">
+          Su dung Testnet <span class="testnet-badge">Demo</span>
+        </label>
+      </div>
+
+      <div class="api-buttons">
+        <button class="btn-api-test" onclick="testApiConnection()">Test ket noi</button>
+        <button class="btn-api-save" onclick="saveApiConfig()">Luu API</button>
+      </div>
+      <div class="api-buttons" style="margin-top: 10px;">
+        <button class="btn-api-clear" onclick="clearApiConfig()">Xoa API</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Donate Float Button -->
   <div class="donate-container" onclick="openDonate()">
     <div class="donate-label">Ung ho tac gia</div>
@@ -4149,7 +4476,479 @@
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
         closeDonate();
+        closeApiConfig();
       }
+    });
+  </script>
+
+  <script>
+    // ===================== BINANCE TRADING SERVICE (Client-side) =====================
+
+    const BINANCE_LIVE_URL = 'https://fapi.binance.com';
+    const BINANCE_TESTNET_URL = 'https://testnet.binancefuture.com';
+
+    // API Config state
+    let binanceApiConfig = {
+      apiKey: '',
+      secretKey: '',
+      testnet: false,
+      connected: false,
+      balance: null
+    };
+
+    // Load saved API config on page load
+    function loadApiConfig() {
+      const saved = localStorage.getItem('binance_api_config');
+      if (saved) {
+        try {
+          const config = JSON.parse(saved);
+          binanceApiConfig.apiKey = config.apiKey || '';
+          binanceApiConfig.secretKey = config.secretKey || '';
+          binanceApiConfig.testnet = config.testnet || false;
+
+          // Fill form
+          document.getElementById('api-key-input').value = binanceApiConfig.apiKey;
+          document.getElementById('api-secret-input').value = binanceApiConfig.secretKey;
+          document.getElementById('api-testnet-checkbox').checked = binanceApiConfig.testnet;
+
+          // Auto test connection if keys exist
+          if (binanceApiConfig.apiKey && binanceApiConfig.secretKey) {
+            testApiConnection();
+          }
+        } catch (e) {
+          console.error('Error loading API config:', e);
+        }
+      }
+    }
+
+    // Open API config modal
+    function openApiConfig() {
+      document.getElementById('api-modal-overlay').classList.add('active');
+      loadApiConfig();
+    }
+
+    // Close API config modal
+    function closeApiConfig(event) {
+      if (!event || event.target.id === 'api-modal-overlay' || event.target.classList.contains('api-modal-close')) {
+        document.getElementById('api-modal-overlay').classList.remove('active');
+      }
+    }
+
+    // Create HMAC SHA256 signature
+    async function createSignature(queryString, secretKey) {
+      const encoder = new TextEncoder();
+      const keyData = encoder.encode(secretKey);
+      const messageData = encoder.encode(queryString);
+
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        keyData,
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+
+      const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+      return Array.from(new Uint8Array(signature))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    }
+
+    // Send signed request to Binance
+    async function binanceSignedRequest(method, endpoint, params = {}) {
+      const baseUrl = binanceApiConfig.testnet ? BINANCE_TESTNET_URL : BINANCE_LIVE_URL;
+      const timestamp = Date.now();
+      const queryParams = { ...params, timestamp };
+
+      const queryString = Object.keys(queryParams)
+        .map(key => `${key}=${queryParams[key]}`)
+        .join('&');
+
+      const signature = await createSignature(queryString, binanceApiConfig.secretKey);
+      const url = `${baseUrl}${endpoint}?${queryString}&signature=${signature}`;
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'X-MBX-APIKEY': binanceApiConfig.apiKey
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.msg || `Binance API error: ${response.status}`);
+      }
+
+      return data;
+    }
+
+    // Test API connection
+    async function testApiConnection() {
+      const apiKey = document.getElementById('api-key-input').value.trim();
+      const secretKey = document.getElementById('api-secret-input').value.trim();
+      const testnet = document.getElementById('api-testnet-checkbox').checked;
+
+      if (!apiKey || !secretKey) {
+        showToast({ type: 'error', title: 'Loi', message: 'Vui long nhap API Key va Secret Key' });
+        return;
+      }
+
+      // Temporarily set config for testing
+      binanceApiConfig.apiKey = apiKey;
+      binanceApiConfig.secretKey = secretKey;
+      binanceApiConfig.testnet = testnet;
+
+      const statusDisplay = document.getElementById('api-status-display');
+      const balanceDisplay = document.getElementById('api-balance-display');
+
+      statusDisplay.innerHTML = '<span>&#8987;</span> Dang ket noi...';
+      statusDisplay.className = 'api-status disconnected';
+
+      try {
+        // Get account info
+        const account = await binanceSignedRequest('GET', '/fapi/v2/account');
+
+        // Find USDT balance
+        const usdtAsset = account.assets.find(a => a.asset === 'USDT');
+        const totalBalance = parseFloat(usdtAsset?.walletBalance || 0);
+        const availableBalance = parseFloat(usdtAsset?.availableBalance || 0);
+        const unrealizedPnl = parseFloat(usdtAsset?.unrealizedProfit || 0);
+
+        binanceApiConfig.connected = true;
+        binanceApiConfig.balance = { totalBalance, availableBalance, unrealizedPnl };
+
+        // Update UI
+        statusDisplay.innerHTML = '<span>&#9679;</span> Da ket noi' + (testnet ? ' <span class="testnet-badge">Testnet</span>' : '');
+        statusDisplay.className = 'api-status connected';
+
+        document.getElementById('api-total-balance').textContent = totalBalance.toFixed(2) + ' USDT';
+        document.getElementById('api-available-balance').textContent = availableBalance.toFixed(2) + ' USDT';
+        document.getElementById('api-unrealized-pnl').textContent = (unrealizedPnl >= 0 ? '+' : '') + unrealizedPnl.toFixed(2) + ' USDT';
+        document.getElementById('api-unrealized-pnl').style.color = unrealizedPnl >= 0 ? '#00ff88' : '#ff5252';
+        balanceDisplay.style.display = 'block';
+
+        // Update button state
+        document.getElementById('api-config-btn').classList.add('connected');
+        document.getElementById('api-icon').innerHTML = '&#9989;';
+
+        showToast({ type: 'success', title: 'Ket noi thanh cong!', message: `So du: ${totalBalance.toFixed(2)} USDT` });
+
+      } catch (error) {
+        binanceApiConfig.connected = false;
+        binanceApiConfig.balance = null;
+
+        statusDisplay.innerHTML = '<span>&#9679;</span> Ket noi that bai: ' + error.message;
+        statusDisplay.className = 'api-status disconnected';
+        balanceDisplay.style.display = 'none';
+
+        document.getElementById('api-config-btn').classList.remove('connected');
+        document.getElementById('api-icon').innerHTML = '&#128274;';
+
+        showToast({ type: 'error', title: 'Ket noi that bai', message: error.message });
+      }
+    }
+
+    // Save API config
+    function saveApiConfig() {
+      const apiKey = document.getElementById('api-key-input').value.trim();
+      const secretKey = document.getElementById('api-secret-input').value.trim();
+      const testnet = document.getElementById('api-testnet-checkbox').checked;
+
+      if (!apiKey || !secretKey) {
+        showToast({ type: 'error', title: 'Loi', message: 'Vui long nhap API Key va Secret Key' });
+        return;
+      }
+
+      localStorage.setItem('binance_api_config', JSON.stringify({
+        apiKey,
+        secretKey,
+        testnet
+      }));
+
+      binanceApiConfig.apiKey = apiKey;
+      binanceApiConfig.secretKey = secretKey;
+      binanceApiConfig.testnet = testnet;
+
+      showToast({ type: 'success', title: 'Da luu!', message: 'API Key da duoc luu vao trinh duyet' });
+      closeApiConfig();
+    }
+
+    // Clear API config
+    function clearApiConfig() {
+      localStorage.removeItem('binance_api_config');
+
+      binanceApiConfig = {
+        apiKey: '',
+        secretKey: '',
+        testnet: false,
+        connected: false,
+        balance: null
+      };
+
+      document.getElementById('api-key-input').value = '';
+      document.getElementById('api-secret-input').value = '';
+      document.getElementById('api-testnet-checkbox').checked = false;
+      document.getElementById('api-status-display').innerHTML = '<span>&#9679;</span> Chua ket noi';
+      document.getElementById('api-status-display').className = 'api-status disconnected';
+      document.getElementById('api-balance-display').style.display = 'none';
+      document.getElementById('api-config-btn').classList.remove('connected');
+      document.getElementById('api-icon').innerHTML = '&#128274;';
+
+      showToast({ type: 'info', title: 'Da xoa!', message: 'API Key da bi xoa khoi trinh duyet' });
+    }
+
+    // Get symbol info for precision
+    async function getSymbolInfo(symbol) {
+      const baseUrl = binanceApiConfig.testnet ? BINANCE_TESTNET_URL : BINANCE_LIVE_URL;
+      const response = await fetch(`${baseUrl}/fapi/v1/exchangeInfo`);
+      const data = await response.json();
+      const symbolInfo = data.symbols.find(s => s.symbol === symbol);
+
+      if (!symbolInfo) {
+        throw new Error(`Symbol ${symbol} khong ton tai`);
+      }
+
+      const lotSizeFilter = symbolInfo.filters.find(f => f.filterType === 'LOT_SIZE');
+      const priceFilter = symbolInfo.filters.find(f => f.filterType === 'PRICE_FILTER');
+
+      return {
+        pricePrecision: symbolInfo.pricePrecision,
+        quantityPrecision: symbolInfo.quantityPrecision,
+        stepSize: parseFloat(lotSizeFilter?.stepSize || 0),
+        tickSize: parseFloat(priceFilter?.tickSize || 0)
+      };
+    }
+
+    // Round quantity to correct precision
+    function roundQuantity(quantity, stepSize) {
+      const precision = Math.round(-Math.log10(stepSize));
+      return Math.floor(quantity * Math.pow(10, precision)) / Math.pow(10, precision);
+    }
+
+    // Round price to correct precision
+    function roundPrice(price, tickSize) {
+      const precision = Math.round(-Math.log10(tickSize));
+      return Math.round(price * Math.pow(10, precision)) / Math.pow(10, precision);
+    }
+
+    // Place order on Binance
+    async function placeBinanceOrder(symbol, side, quantity, orderType = 'MARKET', price = null) {
+      const params = {
+        symbol: symbol.toUpperCase(),
+        side,
+        type: orderType,
+        quantity
+      };
+
+      if (orderType === 'LIMIT' && price) {
+        params.price = price;
+        params.timeInForce = 'GTC';
+      }
+
+      return binanceSignedRequest('POST', '/fapi/v1/order', params);
+    }
+
+    // Place stop loss order
+    async function placeStopLoss(symbol, side, quantity, stopPrice) {
+      const closeSide = side === 'BUY' ? 'SELL' : 'BUY';
+      return binanceSignedRequest('POST', '/fapi/v1/order', {
+        symbol: symbol.toUpperCase(),
+        side: closeSide,
+        type: 'STOP_MARKET',
+        stopPrice,
+        quantity,
+        closePosition: 'false'
+      });
+    }
+
+    // Place take profit order
+    async function placeTakeProfit(symbol, side, quantity, stopPrice) {
+      const closeSide = side === 'BUY' ? 'SELL' : 'BUY';
+      return binanceSignedRequest('POST', '/fapi/v1/order', {
+        symbol: symbol.toUpperCase(),
+        side: closeSide,
+        type: 'TAKE_PROFIT_MARKET',
+        stopPrice,
+        quantity,
+        closePosition: 'false'
+      });
+    }
+
+    // Set leverage
+    async function setLeverage(symbol, leverage) {
+      return binanceSignedRequest('POST', '/fapi/v1/leverage', {
+        symbol: symbol.toUpperCase(),
+        leverage
+      });
+    }
+
+    // Set margin type
+    async function setMarginType(symbol, marginType = 'ISOLATED') {
+      try {
+        return await binanceSignedRequest('POST', '/fapi/v1/marginType', {
+          symbol: symbol.toUpperCase(),
+          marginType
+        });
+      } catch (error) {
+        // Ignore if already set to this type
+        if (!error.message.includes('No need to change margin type')) {
+          throw error;
+        }
+      }
+    }
+
+    // Execute trade on Binance with SL/TP
+    async function executeBinanceTrade(symbol, side, margin, leverage, entryPrice, stopLoss, takeProfit) {
+      if (!binanceApiConfig.connected) {
+        throw new Error('Chua ket noi Binance API. Vui long cau hinh API truoc.');
+      }
+
+      const results = {
+        leverage: null,
+        mainOrder: null,
+        slOrder: null,
+        tpOrder: null,
+        errors: []
+      };
+
+      try {
+        // 1. Get symbol info
+        const symbolInfo = await getSymbolInfo(symbol);
+
+        // 2. Calculate position size
+        const positionValue = margin * leverage;
+        const quantity = roundQuantity(positionValue / entryPrice, symbolInfo.stepSize);
+
+        if (quantity <= 0) {
+          throw new Error('So luong qua nho, tang margin hoac leverage');
+        }
+
+        // 3. Set leverage
+        results.leverage = await setLeverage(symbol, leverage);
+
+        // 4. Set margin type
+        await setMarginType(symbol, 'ISOLATED');
+
+        // 5. Place main order
+        const orderSide = side === 'LONG' ? 'BUY' : 'SELL';
+        results.mainOrder = await placeBinanceOrder(symbol, orderSide, quantity, 'MARKET');
+
+        // 6. Place Stop Loss
+        if (stopLoss) {
+          try {
+            const roundedSL = roundPrice(stopLoss, symbolInfo.tickSize);
+            results.slOrder = await placeStopLoss(symbol, orderSide, quantity, roundedSL);
+          } catch (err) {
+            results.errors.push('SL: ' + err.message);
+          }
+        }
+
+        // 7. Place Take Profit
+        if (takeProfit) {
+          try {
+            const roundedTP = roundPrice(takeProfit, symbolInfo.tickSize);
+            results.tpOrder = await placeTakeProfit(symbol, orderSide, quantity, roundedTP);
+          } catch (err) {
+            results.errors.push('TP: ' + err.message);
+          }
+        }
+
+        return results;
+
+      } catch (error) {
+        results.errors.push(error.message);
+        throw { results, error: error.message };
+      }
+    }
+
+    // Open position on Binance from signal
+    async function openBinancePosition(side) {
+      if (!binanceApiConfig.connected) {
+        showToast({
+          type: 'error',
+          title: 'Chua ket noi Binance',
+          message: 'Click vao nut khoa de cau hinh API Key truoc khi giao dich.'
+        });
+        return;
+      }
+
+      const symbol = document.getElementById('symbol').value;
+      const margin = parseFloat(document.getElementById('order-margin').value);
+      const entryPrice = parseFloat(document.getElementById('order-entry').value);
+      const leverage = parseInt(document.getElementById('order-leverage').value);
+      const stopLoss = parseFloat(document.getElementById('order-sl').value);
+      const takeProfit = parseFloat(document.getElementById('order-tp').value);
+
+      if (!margin || !entryPrice || !leverage) {
+        showToast({ type: 'error', title: 'Loi', message: 'Vui long nhap day du thong tin lenh' });
+        return;
+      }
+
+      // Confirm before trading
+      const confirmed = await showConfirm(
+        `Xac nhan mo lenh ${side}`,
+        `Symbol: ${symbol}<br>` +
+        `Margin: ${margin} USDT<br>` +
+        `Leverage: ${leverage}x<br>` +
+        `Entry: $${entryPrice}<br>` +
+        `Stop Loss: $${stopLoss}<br>` +
+        `Take Profit: $${takeProfit}<br>` +
+        `<br><strong style="color: #ff5252;">Lenh se duoc thuc hien THAT tren Binance ${binanceApiConfig.testnet ? '(Testnet)' : '(Live)'}!</strong>`,
+        false
+      );
+
+      if (!confirmed.confirmed) return;
+
+      showToast({ type: 'info', title: 'Dang dat lenh...', message: 'Vui long doi...' });
+
+      try {
+        const results = await executeBinanceTrade(symbol, side, margin, leverage, entryPrice, stopLoss, takeProfit);
+
+        const details = [
+          { label: 'Order ID', value: results.mainOrder?.orderId || 'N/A' },
+          { label: 'Quantity', value: results.mainOrder?.origQty || 'N/A' },
+          { label: 'Status', value: results.mainOrder?.status || 'N/A' }
+        ];
+
+        if (results.slOrder) {
+          details.push({ label: 'SL Order', value: 'Da dat' });
+        }
+        if (results.tpOrder) {
+          details.push({ label: 'TP Order', value: 'Da dat' });
+        }
+        if (results.errors.length > 0) {
+          details.push({ label: 'Loi', value: results.errors.join(', '), class: 'bearish' });
+        }
+
+        showToast({
+          type: 'success',
+          title: `Lenh ${side} da mo thanh cong!`,
+          message: `${symbol} - ${leverage}x`,
+          details,
+          duration: 8000
+        });
+
+        // Also save to local positions for tracking
+        openPosition(side);
+
+        // Refresh balance
+        testApiConnection();
+
+      } catch (error) {
+        const errMsg = error.error || error.message || 'Unknown error';
+        showToast({
+          type: 'error',
+          title: 'Dat lenh that bai',
+          message: errMsg,
+          duration: 6000
+        });
+      }
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      loadApiConfig();
     });
   </script>
 </body>
