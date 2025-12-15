@@ -1730,7 +1730,20 @@
       }
     }
 
-    // ===================== CLIENT-SIDE SIGNAL ENGINE =====================
+    // ===================== CLIENT-SIDE SIGNAL ENGINE (SMART MONEY CONCEPTS) =====================
+
+    // Multi-Timeframe mapping
+    const MTF_MAP = {
+      '1m':  ['5m', '15m'],
+      '3m':  ['15m', '1h'],
+      '5m':  ['15m', '1h'],
+      '15m': ['1h', '4h'],
+      '30m': ['1h', '4h'],
+      '1h':  ['4h', '1d'],
+      '2h':  ['4h', '1d'],
+      '4h':  ['1d', '1w'],
+      '1d':  ['1w', '1M']
+    };
 
     class ClientSignalEngine {
       constructor() {
@@ -1738,8 +1751,12 @@
           rsiPeriod: 14,
           rsiOversold: 30,
           rsiOverbought: 70,
-          atrMultiplier: 2.5,      // Tăng từ 1.5 lên 2.5 để SL rộng hơn, không bị stop dễ
-          riskRewardRatio: 1.5     // Giảm từ 2 xuống 1.5 để TP dễ đạt hơn
+          atrMultiplier: 2.0,         // SL = 2x ATR
+          riskRewardRatio: 2.0,       // TP = 2x SL distance
+          minScoreToTrade: 5,         // Điểm tối thiểu để vào lệnh (tăng từ 3 lên 5)
+          volumeMultiplier: 1.2,      // Volume phải > 1.2x MA để xác nhận
+          swingLookback: 10,          // Số nến để tìm swing high/low
+          useMTF: true                // Enable Multi-Timeframe Confirmation
         };
       }
 
@@ -1747,6 +1764,7 @@
         const closes = candles.map(c => c.close);
         const highs = candles.map(c => c.high);
         const lows = candles.map(c => c.low);
+        const volumes = candles.map(c => c.volume);
         const currentPrice = closes[closes.length - 1];
 
         // Calculate indicators
@@ -1755,8 +1773,10 @@
         const ema9 = ClientTechnicalIndicators.EMA(closes, 9);
         const ema21 = ClientTechnicalIndicators.EMA(closes, 21);
         const ema50 = ClientTechnicalIndicators.EMA(closes, 50);
+        const ema200 = ClientTechnicalIndicators.EMA(closes, Math.min(200, closes.length - 1));
         const bb = ClientTechnicalIndicators.BollingerBands(closes);
         const atr = ClientTechnicalIndicators.ATR(candles, 14);
+        const volumeMA = ClientTechnicalIndicators.SMA(volumes, 20);
 
         const latestIndicators = {
           rsi: rsi[rsi.length - 1],
@@ -1766,14 +1786,35 @@
           ema9: ema9[ema9.length - 1],
           ema21: ema21[ema21.length - 1],
           ema50: ema50[ema50.length - 1],
+          ema200: ema200[ema200.length - 1],
           bbUpper: bb.upper[bb.upper.length - 1],
           bbMiddle: bb.middle[bb.middle.length - 1],
           bbLower: bb.lower[bb.lower.length - 1],
-          atr: atr[atr.length - 1]
+          atr: atr[atr.length - 1],
+          volume: volumes[volumes.length - 1],
+          volumeMA: volumeMA[volumeMA.length - 1]
         };
+
+        // ==================== SMART MONEY ANALYSIS ====================
+
+        // 1. Market Structure Analysis (HH/HL/LH/LL)
+        const marketStructure = this.analyzeMarketStructure(candles);
+
+        // 2. Volume Analysis
+        const volumeAnalysis = this.analyzeVolume(latestIndicators);
+
+        // 3. Order Block / Demand-Supply Zone
+        const orderBlocks = this.findOrderBlocks(candles);
+
+        // 4. Pullback Detection
+        const pullback = this.detectPullback(candles, latestIndicators);
 
         // Analyze each indicator
         const analysis = {
+          marketStructure,
+          volumeAnalysis,
+          orderBlocks,
+          pullback,
           rsi: this.analyzeRSI(latestIndicators.rsi),
           macd: this.analyzeMACD(latestIndicators),
           ema: this.analyzeEMA(latestIndicators, currentPrice),
@@ -1781,17 +1822,16 @@
           trend: this.analyzeTrend(latestIndicators, currentPrice)
         };
 
-        // Calculate total score
-        const scores = Object.values(analysis).map(a => a.score);
-        const totalScore = scores.reduce((a, b) => a + b, 0);
-        const avgScore = (totalScore / scores.length).toFixed(2);
+        // Calculate total score với trọng số mới
+        const totalScore = this.calculateSmartScore(analysis);
 
         let strength = 'YẾU';
-        if (Math.abs(totalScore) >= 4) strength = 'MẠNH';
-        else if (Math.abs(totalScore) >= 2) strength = 'TRUNG BÌNH';
+        if (Math.abs(totalScore) >= 8) strength = 'RẤT MẠNH';
+        else if (Math.abs(totalScore) >= 5) strength = 'MẠNH';
+        else if (Math.abs(totalScore) >= 3) strength = 'TRUNG BÌNH';
 
         // Generate signal
-        const signal = this.generateSignal({ totalScore, strength }, currentPrice, latestIndicators);
+        const signal = this.generateSignal({ totalScore, strength, analysis }, currentPrice, latestIndicators, candles);
 
         return {
           currentPrice,
@@ -1802,159 +1842,504 @@
               signal: latestIndicators.macdSignal,
               histogram: latestIndicators.macdHistogram
             },
-            ema: { ema9: latestIndicators.ema9, ema21: latestIndicators.ema21, ema50: latestIndicators.ema50 },
+            ema: { ema9: latestIndicators.ema9, ema21: latestIndicators.ema21, ema50: latestIndicators.ema50, ema200: latestIndicators.ema200 },
             bollingerBands: { upper: latestIndicators.bbUpper, middle: latestIndicators.bbMiddle, lower: latestIndicators.bbLower },
-            atr: { current: latestIndicators.atr, period: 14 }
+            atr: { current: latestIndicators.atr, period: 14 },
+            volume: { current: latestIndicators.volume, ma: latestIndicators.volumeMA }
           },
           analysis,
           signal
         };
       }
 
+      // ==================== SMART MONEY FUNCTIONS ====================
+
+      // Phân tích cấu trúc thị trường - tìm HH, HL, LH, LL
+      analyzeMarketStructure(candles) {
+        const lookback = this.config.swingLookback;
+        const highs = candles.map(c => c.high);
+        const lows = candles.map(c => c.low);
+
+        // Tìm các swing points
+        const swingHighs = [];
+        const swingLows = [];
+
+        for (let i = lookback; i < candles.length - lookback; i++) {
+          // Swing High: điểm cao nhất trong vùng lookback
+          const leftHighs = highs.slice(i - lookback, i);
+          const rightHighs = highs.slice(i + 1, i + lookback + 1);
+          if (highs[i] >= Math.max(...leftHighs) && highs[i] >= Math.max(...rightHighs)) {
+            swingHighs.push({ index: i, price: highs[i] });
+          }
+
+          // Swing Low: điểm thấp nhất trong vùng lookback
+          const leftLows = lows.slice(i - lookback, i);
+          const rightLows = lows.slice(i + 1, i + lookback + 1);
+          if (lows[i] <= Math.min(...leftLows) && lows[i] <= Math.min(...rightLows)) {
+            swingLows.push({ index: i, price: lows[i] });
+          }
+        }
+
+        // Xác định trend structure
+        let structure = 'SIDEWAY';
+        let score = 0;
+        let description = '';
+
+        if (swingHighs.length >= 2 && swingLows.length >= 2) {
+          const lastHighs = swingHighs.slice(-3);
+          const lastLows = swingLows.slice(-3);
+
+          // Check Higher Highs & Higher Lows (Uptrend)
+          const isHH = lastHighs.length >= 2 && lastHighs[lastHighs.length - 1].price > lastHighs[lastHighs.length - 2].price;
+          const isHL = lastLows.length >= 2 && lastLows[lastLows.length - 1].price > lastLows[lastLows.length - 2].price;
+
+          // Check Lower Highs & Lower Lows (Downtrend)
+          const isLH = lastHighs.length >= 2 && lastHighs[lastHighs.length - 1].price < lastHighs[lastHighs.length - 2].price;
+          const isLL = lastLows.length >= 2 && lastLows[lastLows.length - 1].price < lastLows[lastLows.length - 2].price;
+
+          if (isHH && isHL) {
+            structure = 'UPTREND';
+            score = 3;
+            description = 'Higher Highs + Higher Lows = Uptrend mạnh';
+          } else if (isLH && isLL) {
+            structure = 'DOWNTREND';
+            score = -3;
+            description = 'Lower Highs + Lower Lows = Downtrend mạnh';
+          } else if (isHH || isHL) {
+            structure = 'WEAK_UPTREND';
+            score = 1;
+            description = 'Có dấu hiệu uptrend nhưng chưa rõ ràng';
+          } else if (isLH || isLL) {
+            structure = 'WEAK_DOWNTREND';
+            score = -1;
+            description = 'Có dấu hiệu downtrend nhưng chưa rõ ràng';
+          }
+        }
+
+        return {
+          structure,
+          score,
+          description,
+          swingHighs: swingHighs.slice(-3),
+          swingLows: swingLows.slice(-3),
+          signal: structure
+        };
+      }
+
+      // Phân tích Volume
+      analyzeVolume(indicators) {
+        const { volume, volumeMA } = indicators;
+        if (!volume || !volumeMA) return { score: 0, signal: 'N/A', description: 'Không có dữ liệu volume' };
+
+        const volumeRatio = volume / volumeMA;
+        let score = 0;
+        let signal = 'NEUTRAL';
+        let description = '';
+
+        if (volumeRatio >= 2.0) {
+          score = 2;
+          signal = 'VERY_HIGH';
+          description = `Volume rất cao (${volumeRatio.toFixed(1)}x MA) - Xác nhận mạnh`;
+        } else if (volumeRatio >= this.config.volumeMultiplier) {
+          score = 1;
+          signal = 'HIGH';
+          description = `Volume cao (${volumeRatio.toFixed(1)}x MA) - Có xác nhận`;
+        } else if (volumeRatio < 0.7) {
+          score = -1;
+          signal = 'LOW';
+          description = `Volume thấp (${volumeRatio.toFixed(1)}x MA) - Không tin cậy`;
+        } else {
+          description = `Volume bình thường (${volumeRatio.toFixed(1)}x MA)`;
+        }
+
+        return { score, signal, volumeRatio: volumeRatio.toFixed(2), description };
+      }
+
+      // Tìm Order Blocks (vùng supply/demand)
+      findOrderBlocks(candles) {
+        const orderBlocks = [];
+        const lookback = 20;
+        const recentCandles = candles.slice(-lookback);
+
+        for (let i = 1; i < recentCandles.length - 1; i++) {
+          const prev = recentCandles[i - 1];
+          const curr = recentCandles[i];
+          const next = recentCandles[i + 1];
+
+          // Bullish Order Block: nến giảm mạnh → nến tăng mạnh (vùng demand)
+          if (prev.close < prev.open && // nến giảm
+              next.close > next.open && // nến tăng
+              next.close > prev.high && // break above
+              (prev.open - prev.close) / prev.close > 0.005) { // nến giảm > 0.5%
+            orderBlocks.push({
+              type: 'DEMAND',
+              high: prev.high,
+              low: prev.low,
+              index: candles.length - lookback + i - 1
+            });
+          }
+
+          // Bearish Order Block: nến tăng mạnh → nến giảm mạnh (vùng supply)
+          if (prev.close > prev.open && // nến tăng
+              next.close < next.open && // nến giảm
+              next.close < prev.low && // break below
+              (prev.close - prev.open) / prev.open > 0.005) { // nến tăng > 0.5%
+            orderBlocks.push({
+              type: 'SUPPLY',
+              high: prev.high,
+              low: prev.low,
+              index: candles.length - lookback + i - 1
+            });
+          }
+        }
+
+        // Kiểm tra giá hiện tại có gần order block không
+        const currentPrice = candles[candles.length - 1].close;
+        const atr = ClientTechnicalIndicators.ATR(candles, 14);
+        const currentATR = atr[atr.length - 1];
+
+        let nearestBlock = null;
+        let score = 0;
+        let description = 'Không có Order Block gần';
+
+        for (const block of orderBlocks.slice(-5)) {
+          const distanceToLow = Math.abs(currentPrice - block.low);
+          const distanceToHigh = Math.abs(currentPrice - block.high);
+          const minDistance = Math.min(distanceToLow, distanceToHigh);
+
+          if (minDistance < currentATR * 1.5) {
+            nearestBlock = block;
+            if (block.type === 'DEMAND' && currentPrice <= block.high && currentPrice >= block.low * 0.99) {
+              score = 2;
+              description = 'Giá đang ở vùng DEMAND - Cơ hội LONG';
+            } else if (block.type === 'SUPPLY' && currentPrice >= block.low && currentPrice <= block.high * 1.01) {
+              score = -2;
+              description = 'Giá đang ở vùng SUPPLY - Cơ hội SHORT';
+            }
+            break;
+          }
+        }
+
+        return { blocks: orderBlocks.slice(-3), nearestBlock, score, signal: nearestBlock?.type || 'NONE', description };
+      }
+
+      // Phát hiện Pullback
+      detectPullback(candles, indicators) {
+        const { ema21, ema50 } = indicators;
+        const currentPrice = candles[candles.length - 1].close;
+        const recentCandles = candles.slice(-10);
+
+        let score = 0;
+        let signal = 'NONE';
+        let description = '';
+
+        // Uptrend pullback: giá trên EMA50, vừa chạm EMA21 và bật lên
+        if (currentPrice > ema50 && currentPrice > ema21) {
+          const touchedEMA21 = recentCandles.some(c => c.low <= ema21 * 1.005 && c.low >= ema21 * 0.995);
+          const bouncedUp = recentCandles.slice(-3).every((c, i, arr) => i === 0 || c.close >= arr[i-1].close);
+
+          if (touchedEMA21 && bouncedUp) {
+            score = 2;
+            signal = 'BULLISH_PULLBACK';
+            description = 'Pullback về EMA21 và bật lên - Entry LONG tốt';
+          }
+        }
+
+        // Downtrend pullback: giá dưới EMA50, vừa chạm EMA21 và giảm tiếp
+        if (currentPrice < ema50 && currentPrice < ema21) {
+          const touchedEMA21 = recentCandles.some(c => c.high >= ema21 * 0.995 && c.high <= ema21 * 1.005);
+          const bouncedDown = recentCandles.slice(-3).every((c, i, arr) => i === 0 || c.close <= arr[i-1].close);
+
+          if (touchedEMA21 && bouncedDown) {
+            score = -2;
+            signal = 'BEARISH_PULLBACK';
+            description = 'Pullback về EMA21 và giảm tiếp - Entry SHORT tốt';
+          }
+        }
+
+        return { score, signal, description };
+      }
+
+      // Phân tích Multi-Timeframe (chỉ cần trend direction từ EMA)
+      analyzeHTFTrend(candles) {
+        const closes = candles.map(c => c.close);
+        const ema21 = ClientTechnicalIndicators.EMA(closes, 21);
+        const ema50 = ClientTechnicalIndicators.EMA(closes, 50);
+        const currentPrice = closes[closes.length - 1];
+
+        const latestEma21 = ema21[ema21.length - 1];
+        const latestEma50 = ema50[ema50.length - 1];
+
+        // Trend direction từ EMA alignment
+        if (currentPrice > latestEma21 && latestEma21 > latestEma50) {
+          return { trend: 'BULLISH', score: 1, description: 'EMA aligned bullish' };
+        } else if (currentPrice < latestEma21 && latestEma21 < latestEma50) {
+          return { trend: 'BEARISH', score: -1, description: 'EMA aligned bearish' };
+        }
+        return { trend: 'NEUTRAL', score: 0, description: 'No clear trend' };
+      }
+
+      // Tính điểm Smart Money (với trọng số)
+      calculateSmartScore(analysis) {
+        let score = 0;
+
+        // Market Structure (trọng số cao nhất: x2)
+        score += analysis.marketStructure.score * 2;
+
+        // Volume Confirmation (trọng số: x1.5)
+        score += analysis.volumeAnalysis.score * 1.5;
+
+        // Order Blocks (trọng số: x1.5)
+        score += analysis.orderBlocks.score * 1.5;
+
+        // Pullback (trọng số: x1.5)
+        score += analysis.pullback.score * 1.5;
+
+        // Traditional indicators (trọng số: x1)
+        score += analysis.rsi.score;
+        score += analysis.macd.score;
+        score += analysis.ema.score;
+        score += analysis.trend.score;
+
+        // BB có trọng số thấp hơn
+        score += analysis.bb.score * 0.5;
+
+        return Math.round(score * 10) / 10;
+      }
+
       analyzeRSI(rsi) {
-        if (rsi === null) return { score: 0, signal: 'N/A' };
-        if (rsi < 30) return { score: 2, signal: 'OVERSOLD' };
-        if (rsi < 40) return { score: 1, signal: 'BULLISH' };
-        if (rsi > 70) return { score: -2, signal: 'OVERBOUGHT' };
-        if (rsi > 60) return { score: -1, signal: 'BEARISH' };
-        return { score: 0, signal: 'NEUTRAL' };
+        if (rsi === null) return { score: 0, signal: 'N/A', description: 'N/A' };
+        if (rsi < 25) return { score: 2, signal: 'OVERSOLD', description: `RSI ${rsi.toFixed(1)} - Quá bán mạnh` };
+        if (rsi < 35) return { score: 1, signal: 'BULLISH', description: `RSI ${rsi.toFixed(1)} - Vùng mua` };
+        if (rsi > 75) return { score: -2, signal: 'OVERBOUGHT', description: `RSI ${rsi.toFixed(1)} - Quá mua mạnh` };
+        if (rsi > 65) return { score: -1, signal: 'BEARISH', description: `RSI ${rsi.toFixed(1)} - Vùng bán` };
+        return { score: 0, signal: 'NEUTRAL', description: `RSI ${rsi.toFixed(1)} - Trung tính` };
       }
 
       analyzeMACD(indicators) {
         const { macd, macdSignal, macdHistogram } = indicators;
-        if (macd === null || macdSignal === null) return { score: 0, signal: 'N/A' };
+        if (macd === null || macdSignal === null) return { score: 0, signal: 'N/A', description: 'N/A' };
 
         let score = 0;
-        if (macd > macdSignal) score += 1;
-        else score -= 1;
+        let description = '';
 
-        if (macdHistogram > 0) score += 1;
-        else score -= 1;
+        // MACD cross
+        if (macd > macdSignal) {
+          score += 1;
+          description = 'MACD trên Signal';
+        } else {
+          score -= 1;
+          description = 'MACD dưới Signal';
+        }
+
+        // Histogram momentum
+        if (macdHistogram > 0 && macdHistogram > 0.0001) {
+          score += 1;
+          description += ', Histogram dương';
+        } else if (macdHistogram < 0 && macdHistogram < -0.0001) {
+          score -= 1;
+          description += ', Histogram âm';
+        }
 
         let signal = 'NEUTRAL';
         if (score >= 2) signal = 'BULLISH';
         else if (score <= -2) signal = 'BEARISH';
 
-        return { score, signal };
+        return { score, signal, description };
       }
 
       analyzeEMA(indicators, currentPrice) {
-        const { ema9, ema21, ema50 } = indicators;
-        if (!ema9 || !ema21 || !ema50) return { score: 0, signal: 'N/A' };
+        const { ema9, ema21, ema50, ema200 } = indicators;
+        if (!ema9 || !ema21 || !ema50) return { score: 0, signal: 'N/A', description: 'N/A' };
 
         let score = 0;
-        if (currentPrice > ema9) score += 1;
-        else score -= 1;
+        let descriptions = [];
 
-        if (ema9 > ema21) score += 1;
-        else score -= 1;
+        // EMA alignment
+        if (ema9 > ema21 && ema21 > ema50) {
+          score += 2;
+          descriptions.push('EMA sắp xếp tăng (9>21>50)');
+        } else if (ema9 < ema21 && ema21 < ema50) {
+          score -= 2;
+          descriptions.push('EMA sắp xếp giảm (9<21<50)');
+        }
 
-        if (currentPrice > ema50) score += 1;
-        else score -= 1;
+        // Price vs EMA200 (trend filter)
+        if (ema200 && currentPrice > ema200) {
+          score += 1;
+          descriptions.push('Trên EMA200 (macro uptrend)');
+        } else if (ema200 && currentPrice < ema200) {
+          score -= 1;
+          descriptions.push('Dưới EMA200 (macro downtrend)');
+        }
 
         let signal = 'NEUTRAL';
         if (score >= 2) signal = 'BULLISH';
         else if (score <= -2) signal = 'BEARISH';
 
-        return { score, signal };
+        return { score, signal, description: descriptions.join(', ') || 'Trung tính' };
       }
 
       analyzeBB(indicators, currentPrice) {
         const { bbUpper, bbMiddle, bbLower } = indicators;
-        if (!bbUpper || !bbMiddle || !bbLower) return { score: 0, signal: 'N/A', pricePosition: 50 };
+        if (!bbUpper || !bbMiddle || !bbLower) return { score: 0, signal: 'N/A', pricePosition: 50, description: 'N/A' };
 
         const range = bbUpper - bbLower;
         const position = ((currentPrice - bbLower) / range * 100).toFixed(1);
 
         let score = 0;
         let signal = 'NEUTRAL';
+        let description = '';
 
         if (currentPrice <= bbLower) {
-          score = 2;
+          score = 1; // Giảm từ 2 xuống 1 vì BB không phải indicator chính
           signal = 'OVERSOLD';
+          description = 'Chạm BB dưới - Có thể bounce';
         } else if (currentPrice >= bbUpper) {
-          score = -2;
-          signal = 'OVERBOUGHT';
-        } else if (currentPrice < bbMiddle) {
-          score = 1;
-          signal = 'BULLISH';
-        } else {
           score = -1;
+          signal = 'OVERBOUGHT';
+          description = 'Chạm BB trên - Có thể pullback';
+        } else if (position < 30) {
+          score = 0.5;
+          signal = 'BULLISH';
+          description = `Vị trí ${position}% - Gần BB dưới`;
+        } else if (position > 70) {
+          score = -0.5;
           signal = 'BEARISH';
+          description = `Vị trí ${position}% - Gần BB trên`;
+        } else {
+          description = `Vị trí ${position}% - Giữa BB`;
         }
 
-        return { score, signal, pricePosition: position };
+        return { score, signal, pricePosition: position, description };
       }
 
       analyzeTrend(indicators, currentPrice) {
-        const { ema21, ema50 } = indicators;
-        if (!ema21 || !ema50) return { score: 0, signal: 'N/A' };
+        const { ema21, ema50, ema200 } = indicators;
+        if (!ema21 || !ema50) return { score: 0, signal: 'N/A', description: 'N/A' };
 
-        if (currentPrice > ema21 && ema21 > ema50) {
-          return { score: 2, signal: 'STRONG_UPTREND' };
+        if (currentPrice > ema21 && ema21 > ema50 && (!ema200 || ema50 > ema200)) {
+          return { score: 2, signal: 'STRONG_UPTREND', description: 'Uptrend mạnh - Tất cả EMA aligned' };
         } else if (currentPrice > ema50) {
-          return { score: 1, signal: 'UPTREND' };
-        } else if (currentPrice < ema21 && ema21 < ema50) {
-          return { score: -2, signal: 'STRONG_DOWNTREND' };
+          return { score: 1, signal: 'UPTREND', description: 'Uptrend - Giá trên EMA50' };
+        } else if (currentPrice < ema21 && ema21 < ema50 && (!ema200 || ema50 < ema200)) {
+          return { score: -2, signal: 'STRONG_DOWNTREND', description: 'Downtrend mạnh - Tất cả EMA aligned' };
         } else if (currentPrice < ema50) {
-          return { score: -1, signal: 'DOWNTREND' };
+          return { score: -1, signal: 'DOWNTREND', description: 'Downtrend - Giá dưới EMA50' };
         }
-        return { score: 0, signal: 'SIDEWAY' };
+        return { score: 0, signal: 'SIDEWAY', description: 'Sideway - Không có trend rõ ràng' };
       }
 
-      generateSignal(analysis, currentPrice, latestIndicators) {
-        const { totalScore, strength } = analysis;
+      generateSignal(analysisData, currentPrice, latestIndicators, candles) {
+        const { totalScore, strength, analysis } = analysisData;
         const atr = latestIndicators.atr;
         const reasons = [];
 
         let action = 'WAIT';
         let confidence = 0;
 
-        if (totalScore >= 3) {
+        // Điều kiện vào lệnh chặt hơn
+        const minScore = this.config.minScoreToTrade;
+        const hasVolumeConfirm = analysis.volumeAnalysis.score >= 1;
+        const hasStructure = Math.abs(analysis.marketStructure.score) >= 2;
+
+        // LONG: cần score >= minScore + volume confirm hoặc structure confirm
+        if (totalScore >= minScore && (hasVolumeConfirm || hasStructure)) {
           action = 'LONG';
-          confidence = Math.min(95, 50 + totalScore * 8);
-          reasons.push(`Tổng điểm ${totalScore} - Xu hướng LONG mạnh`);
-        } else if (totalScore <= -3) {
+          confidence = Math.min(95, 40 + totalScore * 5 + (hasVolumeConfirm ? 10 : 0) + (hasStructure ? 15 : 0));
+          reasons.push(`Smart Score: ${totalScore} - Đủ điều kiện LONG`);
+
+          if (analysis.marketStructure.structure === 'UPTREND') {
+            reasons.push('Market Structure: Uptrend (HH+HL)');
+          }
+          if (analysis.pullback.signal === 'BULLISH_PULLBACK') {
+            reasons.push('Pullback: Entry tại EMA21');
+          }
+          if (analysis.orderBlocks.score > 0) {
+            reasons.push('Order Block: Đang ở vùng Demand');
+          }
+        }
+        // SHORT: cần score <= -minScore + volume confirm hoặc structure confirm
+        else if (totalScore <= -minScore && (hasVolumeConfirm || hasStructure)) {
           action = 'SHORT';
-          confidence = Math.min(95, 50 + Math.abs(totalScore) * 8);
-          reasons.push(`Tổng điểm ${totalScore} - Xu hướng SHORT mạnh`);
-        } else {
-          reasons.push('Tín hiệu chưa rõ ràng, chờ đợi');
+          confidence = Math.min(95, 40 + Math.abs(totalScore) * 5 + (hasVolumeConfirm ? 10 : 0) + (hasStructure ? 15 : 0));
+          reasons.push(`Smart Score: ${totalScore} - Đủ điều kiện SHORT`);
+
+          if (analysis.marketStructure.structure === 'DOWNTREND') {
+            reasons.push('Market Structure: Downtrend (LH+LL)');
+          }
+          if (analysis.pullback.signal === 'BEARISH_PULLBACK') {
+            reasons.push('Pullback: Entry tại EMA21');
+          }
+          if (analysis.orderBlocks.score < 0) {
+            reasons.push('Order Block: Đang ở vùng Supply');
+          }
+        }
+        // Điểm cao nhưng thiếu confirm
+        else if (Math.abs(totalScore) >= 3) {
+          reasons.push(`Score ${totalScore} - Chờ xác nhận thêm`);
+          if (!hasVolumeConfirm) reasons.push('Thiếu: Volume confirmation');
+          if (!hasStructure) reasons.push('Thiếu: Market structure rõ ràng');
+        }
+        else {
+          reasons.push('Thị trường sideway - Không có setup rõ ràng');
         }
 
-        // Add indicator reasons
-        if (latestIndicators.rsi < 30) reasons.push('RSI quá bán (< 30)');
-        else if (latestIndicators.rsi > 70) reasons.push('RSI quá mua (> 70)');
+        // Add analysis details
+        reasons.push(`Market: ${analysis.marketStructure.description}`);
+        reasons.push(`Volume: ${analysis.volumeAnalysis.description}`);
+        if (analysis.orderBlocks.nearestBlock) {
+          reasons.push(`Order Block: ${analysis.orderBlocks.description}`);
+        }
 
-        if (latestIndicators.macdHistogram > 0) reasons.push('MACD Histogram dương');
-        else if (latestIndicators.macdHistogram < 0) reasons.push('MACD Histogram âm');
-
-        if (currentPrice > latestIndicators.ema50) reasons.push('Giá trên EMA50 - Uptrend');
-        else reasons.push('Giá dưới EMA50 - Downtrend');
-
-        // Calculate SL/TP
+        // Calculate SL/TP với logic mới
         const atrMultiplier = this.config.atrMultiplier;
         const rrRatio = this.config.riskRewardRatio;
 
         let stopLoss, takeProfit, leverage, leverageRisk;
+        let slPrice, tpPrice;
 
         if (action === 'LONG') {
-          stopLoss = (currentPrice - atr * atrMultiplier).toFixed(currentPrice > 100 ? 2 : 6);
-          takeProfit = (currentPrice + atr * atrMultiplier * rrRatio).toFixed(currentPrice > 100 ? 2 : 6);
+          // SL dưới swing low gần nhất hoặc 2x ATR
+          const recentLow = Math.min(...candles.slice(-10).map(c => c.low));
+          slPrice = Math.min(currentPrice - atr * atrMultiplier, recentLow * 0.995);
+          tpPrice = currentPrice + Math.abs(currentPrice - slPrice) * rrRatio;
+
+          stopLoss = slPrice.toFixed(currentPrice > 100 ? 2 : 6);
+          takeProfit = tpPrice.toFixed(currentPrice > 100 ? 2 : 6);
         } else if (action === 'SHORT') {
-          stopLoss = (currentPrice + atr * atrMultiplier).toFixed(currentPrice > 100 ? 2 : 6);
-          takeProfit = (currentPrice - atr * atrMultiplier * rrRatio).toFixed(currentPrice > 100 ? 2 : 6);
+          // SL trên swing high gần nhất hoặc 2x ATR
+          const recentHigh = Math.max(...candles.slice(-10).map(c => c.high));
+          slPrice = Math.max(currentPrice + atr * atrMultiplier, recentHigh * 1.005);
+          tpPrice = currentPrice - Math.abs(slPrice - currentPrice) * rrRatio;
+
+          stopLoss = slPrice.toFixed(currentPrice > 100 ? 2 : 6);
+          takeProfit = tpPrice.toFixed(currentPrice > 100 ? 2 : 6);
+        } else {
+          // WAIT - vẫn tính SL/TP để hiển thị
+          slPrice = currentPrice - atr * atrMultiplier;
+          tpPrice = currentPrice + atr * atrMultiplier * rrRatio;
+          stopLoss = slPrice.toFixed(currentPrice > 100 ? 2 : 6);
+          takeProfit = tpPrice.toFixed(currentPrice > 100 ? 2 : 6);
         }
 
-        // Calculate leverage based on signal strength
+        // Calculate leverage based on signal strength và risk
         const slPercent = Math.abs((currentPrice - parseFloat(stopLoss)) / currentPrice * 100);
-        if (slPercent > 5) { leverage = 3; leverageRisk = 'SAFE'; }
-        else if (slPercent > 3) { leverage = 5; leverageRisk = 'LOW'; }
-        else if (slPercent > 2) { leverage = 10; leverageRisk = 'MEDIUM'; }
-        else { leverage = 20; leverageRisk = 'HIGH'; }
 
-        // Adjust leverage based on confidence
-        if (confidence < 60) leverage = Math.max(3, Math.floor(leverage * 0.5));
+        // Leverage logic mới: bảo thủ hơn
+        if (confidence >= 80 && slPercent <= 2) {
+          leverage = 15;
+          leverageRisk = 'MEDIUM-HIGH';
+        } else if (confidence >= 70 && slPercent <= 3) {
+          leverage = 10;
+          leverageRisk = 'MEDIUM';
+        } else if (confidence >= 60 && slPercent <= 4) {
+          leverage = 7;
+          leverageRisk = 'LOW-MEDIUM';
+        } else {
+          leverage = 5;
+          leverageRisk = 'LOW';
+        }
 
         const atrPercent = ((atr / currentPrice) * 100).toFixed(2);
 
@@ -1962,7 +2347,7 @@
           action,
           confidence: confidence + '%',
           totalScore,
-          averageScore: (totalScore / 5).toFixed(2),
+          averageScore: (totalScore / 10).toFixed(2),
           strength,
           entry: currentPrice,
           stopLoss,
@@ -1974,7 +2359,11 @@
           leverageRisk,
           atr: atr ? atr.toFixed(currentPrice > 100 ? 2 : 6) : 'N/A',
           atrPercent: atrPercent + '%',
-          reasons
+          reasons,
+          // Smart Money data
+          marketStructure: analysis.marketStructure.structure,
+          volumeConfirm: analysis.volumeAnalysis.signal,
+          orderBlock: analysis.orderBlocks.nearestBlock?.type || 'NONE'
         };
       }
     }
@@ -2123,11 +2512,84 @@
         if (IS_CLOUDFLARE) {
           // Client-side analysis for Cloudflare (bypass Binance IP block)
           console.log('[Cloudflare Mode] Fetching directly from Binance...');
+
+          // Fetch main timeframe
           const candles = await fetchBinanceKlines(symbol, interval, 100);
           const result = clientSignalEngine.analyze(candles);
           result.symbol = symbol.toUpperCase();
           result.interval = interval;
           result.market = market;
+
+          // Multi-Timeframe Analysis
+          const htfIntervals = MTF_MAP[interval] || ['1h', '4h'];
+          const mtfResults = [];
+
+          resultDiv.innerHTML = '<div class="loading">Đang phân tích Multi-Timeframe...</div>';
+
+          for (const htfInterval of htfIntervals) {
+            try {
+              const htfCandles = await fetchBinanceKlines(symbol, htfInterval, 60);
+              const htfTrend = clientSignalEngine.analyzeHTFTrend(htfCandles);
+              mtfResults.push({
+                interval: htfInterval,
+                ...htfTrend
+              });
+              await new Promise(resolve => setTimeout(resolve, 50)); // Rate limit
+            } catch (err) {
+              console.error(`Error fetching ${htfInterval}:`, err);
+              mtfResults.push({
+                interval: htfInterval,
+                trend: 'UNKNOWN',
+                score: 0,
+                description: 'Không lấy được dữ liệu'
+              });
+            }
+          }
+
+          // Tính MTF Confirmation
+          const mtfBullish = mtfResults.filter(r => r.trend === 'BULLISH').length;
+          const mtfBearish = mtfResults.filter(r => r.trend === 'BEARISH').length;
+          const totalMTF = mtfResults.length;
+
+          let mtfConfirmation = {
+            results: mtfResults,
+            bullishCount: mtfBullish,
+            bearishCount: mtfBearish,
+            totalCount: totalMTF,
+            signal: 'NEUTRAL',
+            confirmed: false,
+            description: ''
+          };
+
+          if (mtfBullish >= totalMTF * 0.5) {
+            mtfConfirmation.signal = 'BULLISH';
+            mtfConfirmation.confirmed = result.signal.action === 'LONG';
+            mtfConfirmation.description = `${mtfBullish}/${totalMTF} HTF bullish - ${mtfConfirmation.confirmed ? 'XÁC NHẬN LONG' : 'Cảnh báo: Ngược trend HTF'}`;
+          } else if (mtfBearish >= totalMTF * 0.5) {
+            mtfConfirmation.signal = 'BEARISH';
+            mtfConfirmation.confirmed = result.signal.action === 'SHORT';
+            mtfConfirmation.description = `${mtfBearish}/${totalMTF} HTF bearish - ${mtfConfirmation.confirmed ? 'XÁC NHẬN SHORT' : 'Cảnh báo: Ngược trend HTF'}`;
+          } else {
+            mtfConfirmation.description = 'HTF không rõ ràng - Cẩn thận';
+          }
+
+          // Điều chỉnh signal dựa trên MTF
+          if (result.signal.action !== 'WAIT' && !mtfConfirmation.confirmed) {
+            // Giảm confidence nếu ngược trend HTF
+            const currentConf = parseFloat(result.signal.confidence);
+            result.signal.confidence = Math.max(40, currentConf - 20) + '%';
+            result.signal.reasons.push(`⚠️ MTF: ${mtfConfirmation.description}`);
+          } else if (mtfConfirmation.confirmed) {
+            // Tăng confidence nếu cùng trend HTF
+            const currentConf = parseFloat(result.signal.confidence);
+            result.signal.confidence = Math.min(95, currentConf + 10) + '%';
+            result.signal.reasons.push(`✅ MTF: ${mtfConfirmation.description}`);
+          }
+
+          // Thêm MTF data vào result
+          result.analysis.mtf = mtfConfirmation;
+          result.signal.mtfConfirmed = mtfConfirmation.confirmed;
+
           data = { success: true, data: result };
         } else {
           // Server-side analysis for local/VPS
@@ -2217,6 +2679,64 @@
               <div class="status">${signal.strength}</div>
             </div>
           </div>
+
+          <!-- Smart Money Analysis Section (chỉ hiện khi có data) -->
+          ${analysis.marketStructure ? `
+          <div class="smart-money-section" style="margin-top: 15px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+            <h4 style="margin: 0 0 10px; color: #ffd700;">📊 Smart Money Analysis</h4>
+            <div class="indicators-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
+              <div class="indicator-box">
+                <h4>Market Structure</h4>
+                <div class="value ${analysis.marketStructure.score > 0 ? 'bullish' : analysis.marketStructure.score < 0 ? 'bearish' : 'neutral'}">
+                  ${analysis.marketStructure.structure}
+                </div>
+                <div class="status" style="font-size: 0.75em;">${analysis.marketStructure.score > 0 ? 'HH+HL' : analysis.marketStructure.score < 0 ? 'LH+LL' : 'Sideway'}</div>
+              </div>
+
+              ${analysis.volumeAnalysis ? `
+              <div class="indicator-box">
+                <h4>Volume</h4>
+                <div class="value ${analysis.volumeAnalysis.score > 0 ? 'bullish' : analysis.volumeAnalysis.score < 0 ? 'bearish' : 'neutral'}">
+                  ${analysis.volumeAnalysis.volumeRatio || 'N/A'}x
+                </div>
+                <div class="status">${analysis.volumeAnalysis.signal}</div>
+              </div>
+              ` : ''}
+
+              ${analysis.orderBlocks ? `
+              <div class="indicator-box">
+                <h4>Order Block</h4>
+                <div class="value ${analysis.orderBlocks.score > 0 ? 'bullish' : analysis.orderBlocks.score < 0 ? 'bearish' : 'neutral'}">
+                  ${analysis.orderBlocks.signal}
+                </div>
+                <div class="status">${analysis.orderBlocks.nearestBlock ? 'Gần vùng' : 'Không có'}</div>
+              </div>
+              ` : ''}
+
+              ${analysis.pullback ? `
+              <div class="indicator-box">
+                <h4>Pullback</h4>
+                <div class="value ${analysis.pullback.score > 0 ? 'bullish' : analysis.pullback.score < 0 ? 'bearish' : 'neutral'}">
+                  ${analysis.pullback.signal || 'NONE'}
+                </div>
+                <div class="status">${analysis.pullback.score !== 0 ? 'Entry tốt' : 'Chưa có'}</div>
+              </div>
+              ` : ''}
+
+              ${analysis.mtf ? `
+              <div class="indicator-box" style="grid-column: span 2;">
+                <h4>Multi-Timeframe</h4>
+                <div class="value ${analysis.mtf.confirmed ? 'bullish' : analysis.mtf.signal === 'NEUTRAL' ? 'neutral' : 'bearish'}">
+                  ${analysis.mtf.signal} ${analysis.mtf.confirmed ? '✅' : analysis.mtf.signal !== 'NEUTRAL' ? '⚠️' : ''}
+                </div>
+                <div class="status" style="font-size: 0.75em;">
+                  ${analysis.mtf.results.map(r => `${r.interval}: ${r.trend}`).join(' | ')}
+                </div>
+              </div>
+              ` : ''}
+            </div>
+          </div>
+          ` : ''}
 
           ${signal.action !== 'WAIT' ? `
           <div class="trade-setup">
@@ -2322,10 +2842,23 @@
         let data;
 
         if (IS_CLOUDFLARE) {
-          // Client-side scan for Cloudflare
+          // Client-side scan for Cloudflare - quét 30 đồng phổ biến
           console.log('[Cloudflare Mode] Scanning symbols from browser...');
-          const topSymbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT'];
+          const topSymbols = [
+            'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
+            'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'DOTUSDT', 'LINKUSDT',
+            'MATICUSDT', 'LTCUSDT', 'ATOMUSDT', 'UNIUSDT', 'APTUSDT',
+            'ARBUSDT', 'OPUSDT', 'NEARUSDT', 'FILUSDT', 'INJUSDT',
+            'SUIUSDT', 'SEIUSDT', 'TIAUSDT', 'FETUSDT', 'WIFUSDT',
+            'PEPEUSDT', 'ORDIUSDT', 'STXUSDT', 'RUNEUSDT', 'AAVEUSDT'
+          ];
           const results = [];
+
+          // Hiển thị progress
+          let scanned = 0;
+          const updateProgress = () => {
+            resultDiv.innerHTML = `<div class="loading">Đang quét tín hiệu... ${scanned}/${topSymbols.length}</div>`;
+          };
 
           for (const symbol of topSymbols) {
             try {
@@ -2334,11 +2867,15 @@
               result.symbol = symbol;
               result.interval = interval;
               results.push(result);
+              scanned++;
+              updateProgress();
               // Small delay to avoid rate limit
-              await new Promise(resolve => setTimeout(resolve, 100));
+              await new Promise(resolve => setTimeout(resolve, 50));
             } catch (err) {
               console.error(`Error scanning ${symbol}:`, err);
               results.push({ symbol, error: err.message });
+              scanned++;
+              updateProgress();
             }
           }
 
@@ -2364,28 +2901,39 @@
 
     // Render multiple signals
     function renderMultiSignals(signals) {
-      // Sort by signal strength
-      signals.sort((a, b) => {
-        if (a.signal && b.signal) {
-          return Math.abs(b.signal.totalScore) - Math.abs(a.signal.totalScore);
-        }
-        return 0;
+      // Lọc bỏ lỗi và chỉ lấy những đồng có signal
+      const validSignals = signals.filter(s => !s.error && s.signal);
+
+      // Sort by signal strength (điểm cao nhất trước)
+      validSignals.sort((a, b) => {
+        return Math.abs(b.signal.totalScore) - Math.abs(a.signal.totalScore);
       });
 
-      const html = signals.map(s => {
-        if (s.error) {
-          return `<div class="mini-signal"><span class="symbol">${s.symbol}</span><span style="color: #ff5252;">Error</span></div>`;
-        }
+      // Chỉ lấy top 15 đồng có điểm cao nhất
+      const top15 = validSignals.slice(0, 15);
 
+      // Thêm header hiển thị thông tin
+      let headerHtml = `
+        <div style="padding: 10px; background: rgba(255,215,0,0.1); border-radius: 8px; margin-bottom: 10px; text-align: center;">
+          <span style="color: #ffd700;">📊 Top 15 đồng có tín hiệu mạnh nhất</span>
+          <span style="color: #888; font-size: 0.85em;"> (từ ${signals.length} đồng)</span>
+        </div>
+      `;
+
+      const html = top15.map((s, index) => {
         const signalClass = s.signal.action === 'LONG' ? 'signal-long' :
                            s.signal.action === 'SHORT' ? 'signal-short' : 'signal-wait';
 
         const confidence = parseFloat(s.signal.confidence) || 0;
+        const rankBadge = index < 3 ? ['🥇', '🥈', '🥉'][index] : `#${index + 1}`;
 
         return `
-          <div class="mini-signal" onclick="selectSymbol('${s.symbol}')">
+          <div class="mini-signal" onclick="selectSymbol('${s.symbol}')" style="${index < 3 ? 'border: 1px solid #ffd700;' : ''}">
             <div>
-              <div class="symbol">${s.symbol}</div>
+              <div class="symbol">
+                <span style="margin-right: 5px;">${rankBadge}</span>
+                ${s.symbol.replace('USDT', '')}
+              </div>
               <div class="price-info">$${s.currentPrice.toLocaleString()}</div>
             </div>
             <div>
@@ -2399,7 +2947,7 @@
         `;
       }).join('');
 
-      document.getElementById('multi-result').innerHTML = html;
+      document.getElementById('multi-result').innerHTML = headerHtml + html;
     }
 
     // Select symbol from multi scan

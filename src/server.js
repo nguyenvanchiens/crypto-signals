@@ -87,7 +87,7 @@ app.get('/api/signals', async (req, res) => {
 
     const symbolList = symbols
       ? symbols.split(',')
-      : binanceService.getPopularSymbols().slice(0, 5);
+      : binanceService.getPopularSymbols().slice(0, 30);
 
     const results = [];
 

@@ -151,21 +151,15 @@ class BinanceService {
    */
   getPopularSymbols() {
     return [
-      'BTCUSDT',
-      'ETHUSDT',
-      'BNBUSDT',
-      'XRPUSDT',
-      'ADAUSDT',
-      'DOGEUSDT',
-      'SOLUSDT',
-      'DOTUSDT',
-      'MATICUSDT',
-      'LINKUSDT',
-      'AVAXUSDT',
-      'ATOMUSDT',
-      'LTCUSDT',
-      'UNIUSDT',
-      'APTUSDT'
+      // Top 10
+      'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
+      'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'DOTUSDT', 'LINKUSDT',
+      // 11-20
+      'MATICUSDT', 'LTCUSDT', 'ATOMUSDT', 'UNIUSDT', 'APTUSDT',
+      'ARBUSDT', 'OPUSDT', 'NEARUSDT', 'FILUSDT', 'INJUSDT',
+      // 21-30
+      'SUIUSDT', 'SEIUSDT', 'TIAUSDT', 'FETUSDT', 'WIFUSDT',
+      'PEPEUSDT', 'ORDIUSDT', 'STXUSDT', 'RUNEUSDT', 'AAVEUSDT'
     ];
   }
 
