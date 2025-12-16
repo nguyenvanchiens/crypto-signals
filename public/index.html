@@ -1910,10 +1910,6 @@
           <div class="label">Tổng margin</div>
           <div class="value" id="total-margin">$0.00</div>
         </div>
-        <div class="stat-item admin-only" style="display: none; flex-direction: column; gap: 5px;">
-          <button id="sync-binance-btn" onclick="syncPositionsWithBinance()" style="background: linear-gradient(135deg, #f0b90b 0%, #d4a40a 100%); border: none; color: #000; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85em; font-weight: bold;">&#128260; Sync Binance</button>
-          <div style="font-size: 0.7em; color: #888;">Sync: <span id="last-sync-time">--:--</span></div>
-        </div>
       </div>
       <div id="open-positions"></div>
     </div>
@@ -1947,6 +1943,25 @@
 
   <script>
     const API_BASE = '';
+
+    // ===================== ADMIN MODE (Secret Password) =====================
+    const ADMIN_SECRET_KEY = 'chiennv1';
+    let isAdminMode = false;
+
+    // Check admin mode immediately on script load
+    (function initAdminMode() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get('key');
+      const savedKey = localStorage.getItem('admin_key');
+
+      if (urlKey === ADMIN_SECRET_KEY) {
+        isAdminMode = true;
+        localStorage.setItem('admin_key', ADMIN_SECRET_KEY);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else if (savedKey === ADMIN_SECRET_KEY) {
+        isAdminMode = true;
+      }
+    })();
 
     // Detect if running on Cloudflare Workers (not localhost)
     const IS_CLOUDFLARE = !window.location.hostname.includes('localhost') &&
@@ -4489,44 +4504,6 @@
   </script>
 
   <script>
-    // ===================== ADMIN MODE (Secret Password) =====================
-    const ADMIN_SECRET_KEY = 'chiennv1';
-    let isAdminMode = false;
-
-    // Check if admin mode from localStorage or URL
-    function checkAdminMode() {
-      // Check URL parameter
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlKey = urlParams.get('key');
-
-      // Check localStorage
-      const savedKey = localStorage.getItem('admin_key');
-
-      if (urlKey === ADMIN_SECRET_KEY) {
-        isAdminMode = true;
-        localStorage.setItem('admin_key', ADMIN_SECRET_KEY);
-        // Remove key from URL to hide it
-        window.history.replaceState({}, document.title, window.location.pathname);
-      } else if (savedKey === ADMIN_SECRET_KEY) {
-        isAdminMode = true;
-      }
-
-      return isAdminMode;
-    }
-
-    // Prompt for admin password
-    function promptAdminPassword() {
-      const key = prompt('Nhap mat khau admin:');
-      if (key === ADMIN_SECRET_KEY) {
-        isAdminMode = true;
-        localStorage.setItem('admin_key', ADMIN_SECRET_KEY);
-        showBinanceFeatures();
-        showToast({ type: 'success', title: 'Admin Mode', message: 'Da mo khoa tinh nang Binance Trading!' });
-      } else if (key !== null) {
-        showToast({ type: 'error', title: 'Sai mat khau', message: 'Mat khau khong dung!' });
-      }
-    }
-
     // Show/Hide Binance features based on admin mode
     function showBinanceFeatures() {
       const elements = document.querySelectorAll('.admin-only');
@@ -4687,10 +4664,6 @@
 
         showToast({ type: 'success', title: 'Ket noi thanh cong!', message: `So du: ${totalBalance.toFixed(2)} USDT` });
 
-        // Start auto sync after successful connection
-        syncPositionsWithBinance();
-        startAutoSync(30000);
-
       } catch (error) {
         binanceApiConfig.connected = false;
         binanceApiConfig.balance = null;
@@ -4756,162 +4729,6 @@
     }
 
     // ===================== BINANCE POSITION SYNC =====================
-
-    // Fetch open positions from Binance
-    async function getBinancePositions() {
-      if (!binanceApiConfig.connected) {
-        return [];
-      }
-
-      try {
-        const positions = await binanceSignedRequest('GET', '/fapi/v2/positionRisk');
-        // Filter only positions with non-zero amount
-        return positions.filter(p => parseFloat(p.positionAmt) !== 0).map(p => ({
-          symbol: p.symbol,
-          positionAmt: parseFloat(p.positionAmt),
-          entryPrice: parseFloat(p.entryPrice),
-          markPrice: parseFloat(p.markPrice),
-          unrealizedProfit: parseFloat(p.unRealizedProfit),
-          liquidationPrice: parseFloat(p.liquidationPrice),
-          leverage: parseInt(p.leverage),
-          marginType: p.marginType,
-          side: parseFloat(p.positionAmt) > 0 ? 'LONG' : 'SHORT'
-        }));
-      } catch (error) {
-        console.error('Error fetching Binance positions:', error);
-        return [];
-      }
-    }
-
-    // Sync local positions with Binance
-    async function syncPositionsWithBinance() {
-      if (!binanceApiConfig.connected) {
-        showToast({ type: 'warning', title: 'Chua ket noi', message: 'Vui long ket noi Binance API truoc' });
-        return;
-      }
-
-      const syncBtn = document.getElementById('sync-binance-btn');
-      if (syncBtn) {
-        syncBtn.innerHTML = '&#8987; Dang dong bo...';
-        syncBtn.disabled = true;
-      }
-
-      try {
-        const binancePositions = await getBinancePositions();
-        let syncedCount = 0;
-        let closedCount = 0;
-
-        // Check each local position
-        for (let i = openPositions.length - 1; i >= 0; i--) {
-          const localPos = openPositions[i];
-          const binancePos = binancePositions.find(bp =>
-            bp.symbol === localPos.symbol &&
-            bp.side === localPos.type
-          );
-
-          if (!binancePos) {
-            // Position closed on Binance - close it locally too
-            const closedPosition = {
-              ...localPos,
-              closePrice: localPos.entryPrice, // We don't know exact close price
-              closeTime: new Date().toISOString(),
-              status: 'CLOSED_BY_BINANCE',
-              pnl: 0, // Unknown PnL
-              pnlPercent: 0
-            };
-            closedPositions.unshift(closedPosition);
-            openPositions.splice(i, 1);
-            closedCount++;
-          } else {
-            // Update position with current data from Binance
-            localPos.currentPrice = binancePos.markPrice;
-            localPos.unrealizedPnl = binancePos.unrealizedProfit;
-            localPos.liquidationPrice = binancePos.liquidationPrice;
-            syncedCount++;
-          }
-        }
-
-        // Check for positions on Binance that aren't tracked locally
-        const newPositions = [];
-        for (const bp of binancePositions) {
-          const localExists = openPositions.find(lp =>
-            lp.symbol === bp.symbol && lp.type === bp.side
-          );
-          if (!localExists) {
-            // New position opened directly on Binance
-            newPositions.push({
-              id: Date.now() + Math.random(),
-              symbol: bp.symbol,
-              type: bp.side,
-              margin: Math.abs(bp.positionAmt * bp.entryPrice / bp.leverage),
-              leverage: bp.leverage,
-              entryPrice: bp.entryPrice,
-              quantity: Math.abs(bp.positionAmt),
-              positionSize: Math.abs(bp.positionAmt * bp.entryPrice),
-              openTime: new Date().toISOString(),
-              status: 'OPEN_FROM_BINANCE',
-              currentPrice: bp.markPrice,
-              unrealizedPnl: bp.unrealizedProfit,
-              liquidationPrice: bp.liquidationPrice
-            });
-          }
-        }
-
-        // Add new positions from Binance
-        openPositions.push(...newPositions);
-
-        savePositions();
-        renderOpenPositions();
-        updatePnL();
-
-        // Update last sync time
-        const lastSyncEl = document.getElementById('last-sync-time');
-        if (lastSyncEl) {
-          lastSyncEl.textContent = new Date().toLocaleTimeString('vi-VN');
-        }
-
-        let message = '';
-        if (closedCount > 0) message += `${closedCount} lenh da dong. `;
-        if (newPositions.length > 0) message += `${newPositions.length} lenh moi tu Binance. `;
-        if (syncedCount > 0) message += `${syncedCount} lenh da cap nhat.`;
-        if (!message) message = 'Khong co thay doi.';
-
-        showToast({
-          type: closedCount > 0 || newPositions.length > 0 ? 'success' : 'info',
-          title: 'Dong bo hoan tat!',
-          message: message
-        });
-
-      } catch (error) {
-        showToast({ type: 'error', title: 'Loi dong bo', message: error.message });
-      } finally {
-        if (syncBtn) {
-          syncBtn.innerHTML = '&#128260; Sync Binance';
-          syncBtn.disabled = false;
-        }
-      }
-    }
-
-    // Auto sync interval
-    let autoSyncInterval = null;
-
-    function startAutoSync(intervalMs = 30000) {
-      if (autoSyncInterval) {
-        clearInterval(autoSyncInterval);
-      }
-      autoSyncInterval = setInterval(() => {
-        if (binanceApiConfig.connected && openPositions.length > 0) {
-          syncPositionsWithBinance();
-        }
-      }, intervalMs);
-    }
-
-    function stopAutoSync() {
-      if (autoSyncInterval) {
-        clearInterval(autoSyncInterval);
-        autoSyncInterval = null;
-      }
-    }
 
     // Close position on Binance
     async function closeBinancePosition(localPosition) {
@@ -5037,7 +4854,8 @@
         type: 'STOP_MARKET',
         stopPrice,
         quantity,
-        closePosition: 'false'
+        reduceOnly: 'true',
+        workingType: 'MARK_PRICE'
       });
     }
 
@@ -5050,7 +4868,8 @@
         type: 'TAKE_PROFIT_MARKET',
         stopPrice,
         quantity,
-        closePosition: 'false'
+        reduceOnly: 'true',
+        workingType: 'MARK_PRICE'
       });
     }
 
@@ -5227,19 +5046,10 @@
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
-      // Check admin mode first
-      checkAdminMode();
+      // Show/hide admin-only features
       showBinanceFeatures();
 
       loadApiConfig();
-
-      // Start auto sync every 30 seconds if connected (only if admin)
-      setTimeout(() => {
-        if (isAdminMode && binanceApiConfig.connected) {
-          syncPositionsWithBinance();
-          startAutoSync(30000);
-        }
-      }, 2000);
     });
   </script>
 </body>
