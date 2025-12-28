@@ -234,6 +234,126 @@ class TechnicalIndicators {
   }
 
   /**
+   * Tính Average Directional Index (ADX) - Đo độ mạnh của trend
+   * ADX > 25 = trend mạnh, ADX < 20 = sideway/không có trend
+   * @param {Object[]} candles - Mảng candle { high, low, close }
+   * @param {number} period - Số kỳ (mặc định 14)
+   * @returns {number[]} - Mảng giá trị ADX (0-100)
+   */
+  static ADX(candles, period = 14) {
+    if (candles.length < period + 1) {
+      return new Array(candles.length).fill(null);
+    }
+
+    const plusDM = [];
+    const minusDM = [];
+    const trueRanges = [];
+
+    // Tính +DM, -DM và True Range
+    for (let i = 1; i < candles.length; i++) {
+      const high = candles[i].high;
+      const low = candles[i].low;
+      const prevHigh = candles[i - 1].high;
+      const prevLow = candles[i - 1].low;
+      const prevClose = candles[i - 1].close;
+
+      // +DM và -DM
+      const upMove = high - prevHigh;
+      const downMove = prevLow - low;
+
+      if (upMove > downMove && upMove > 0) {
+        plusDM.push(upMove);
+      } else {
+        plusDM.push(0);
+      }
+
+      if (downMove > upMove && downMove > 0) {
+        minusDM.push(downMove);
+      } else {
+        minusDM.push(0);
+      }
+
+      // True Range
+      const tr = Math.max(
+        high - low,
+        Math.abs(high - prevClose),
+        Math.abs(low - prevClose)
+      );
+      trueRanges.push(tr);
+    }
+
+    // Smoothed averages với Wilder's smoothing
+    const smoothedTR = this.wilderSmooth(trueRanges, period);
+    const smoothedPlusDM = this.wilderSmooth(plusDM, period);
+    const smoothedMinusDM = this.wilderSmooth(minusDM, period);
+
+    // Tính +DI và -DI
+    const plusDI = [];
+    const minusDI = [];
+    const dx = [];
+
+    for (let i = 0; i < smoothedTR.length; i++) {
+      if (smoothedTR[i] === null || smoothedTR[i] === 0) {
+        plusDI.push(null);
+        minusDI.push(null);
+        dx.push(null);
+        continue;
+      }
+
+      const pDI = (smoothedPlusDM[i] / smoothedTR[i]) * 100;
+      const mDI = (smoothedMinusDM[i] / smoothedTR[i]) * 100;
+
+      plusDI.push(pDI);
+      minusDI.push(mDI);
+
+      // DX = |+DI - -DI| / (+DI + -DI) * 100
+      const diSum = pDI + mDI;
+      if (diSum === 0) {
+        dx.push(0);
+      } else {
+        dx.push(Math.abs(pDI - mDI) / diSum * 100);
+      }
+    }
+
+    // ADX = Smoothed DX
+    const adx = this.wilderSmooth(dx, period);
+
+    // Thêm null cho index đầu tiên (vì ta bắt đầu từ i=1)
+    return [null, ...adx];
+  }
+
+  /**
+   * Wilder's Smoothing Method (dùng cho ADX)
+   */
+  static wilderSmooth(data, period) {
+    const result = [];
+
+    for (let i = 0; i < data.length; i++) {
+      if (i < period - 1) {
+        result.push(null);
+        continue;
+      }
+
+      if (i === period - 1) {
+        // First value = simple average
+        const sum = data.slice(0, period).reduce((a, b) => (a || 0) + (b || 0), 0);
+        result.push(sum / period);
+        continue;
+      }
+
+      // Wilder's smoothing: Current = Prior - (Prior/Period) + Current Value
+      const prior = result[i - 1];
+      if (prior === null) {
+        result.push(null);
+      } else {
+        result.push(prior - (prior / period) + (data[i] || 0));
+      }
+    }
+
+    return result;
+  }
+
+  /**
    * Tính Stochastic RSI
    * @param {number[]} closes - Mảng giá đóng cửa
    * @param {number} rsiPeriod - RSI period

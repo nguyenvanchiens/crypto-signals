@@ -23,11 +23,22 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Khởi tạo services
 const binanceService = new BinanceService();
 const signalEngine = new SignalEngine({
+  // RSI Settings - Siết chặt để chỉ vào lệnh khi thực sự oversold/overbought
   rsiPeriod: 14,
-  rsiOversold: 30,
-  rsiOverbought: 70,
-  atrMultiplier: 1.5,
-  riskRewardRatio: 2
+  rsiOversold: 30,      // RSI < 30 = oversold
+  rsiOverbought: 70,    // RSI > 70 = overbought
+
+  // Risk/Reward - SL/TP giờ dựa trên Support/Resistance
+  // Các giá trị ATR multiplier chỉ dùng làm backup
+  atrMultiplierLong: 2.0,
+  atrMultiplierShort: 2.0,
+  riskRewardRatio: 1.5,
+
+  // Signal Quality - Yêu cầu CAO để tăng win rate
+  minScoreForSignal: 5,     // Cần ít nhất 5 điểm (tăng từ 4)
+  minConfluence: 4,          // Cần 4 indicators đồng thuận (tăng từ 3)
+  sidewaysADXThreshold: 22,  // ADX < 22 = sideway, không giao dịch
+  adxTrendThreshold: 25      // ADX > 25 = có trend rõ ràng
 });
 
 // Cache để lưu tín hiệu
@@ -175,6 +186,93 @@ app.get('/api/config', (req, res) => {
       intervals: binanceService.getSupportedIntervals()
     }
   });
+});
+
+/**
+ * API: Quét TOÀN BỘ thị trường và chọn TOP 3 đồng tốt nhất
+ * GET /api/scan-all
+ */
+app.get('/api/scan-all', async (req, res) => {
+  try {
+    const { interval = '1h', minVolume = 10000000 } = req.query;
+
+    console.log(`[${new Date().toISOString()}] Bắt đầu quét toàn bộ thị trường...`);
+
+    // Lấy tất cả Futures symbols
+    const allSymbols = await binanceService.getAllFuturesSymbols(parseInt(minVolume));
+    console.log(`[Scan] Đang phân tích ${allSymbols.length} symbols...`);
+
+    const allResults = [];
+    let processed = 0;
+
+    // Phân tích từng symbol
+    for (const symbolInfo of allSymbols) {
+      try {
+        const candles = await binanceService.getFuturesKlines(symbolInfo.symbol, interval, 100);
+        const result = signalEngine.analyze(candles);
+
+        // Chỉ lưu nếu có tín hiệu (LONG hoặc SHORT)
+        if (result.signal && result.signal.action !== 'WAIT') {
+          allResults.push({
+            symbol: symbolInfo.symbol,
+            volume24h: symbolInfo.volume,
+            priceChange24h: symbolInfo.priceChange,
+            lastPrice: symbolInfo.lastPrice,
+            action: result.signal.action,
+            confidence: parseFloat(result.signal.confidence),
+            totalScore: result.signal.totalScore,
+            strength: result.signal.strength,
+            entry: result.signal.entry,
+            stopLoss: result.signal.stopLoss,
+            takeProfit: result.signal.takeProfit,
+            riskPercent: result.signal.riskPercent,
+            rewardPercent: result.signal.rewardPercent,
+            riskReward: result.signal.riskReward,
+            leverage: result.signal.leverage,
+            reason: result.signal.reason,
+            indicators: result.indicators,
+            interval: interval
+          });
+        }
+
+        processed++;
+        if (processed % 20 === 0) {
+          console.log(`[Scan] Đã xử lý ${processed}/${allSymbols.length} symbols...`);
+        }
+
+        // Delay để tránh rate limit
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } catch (err) {
+        // Bỏ qua lỗi, tiếp tục symbol khác
+      }
+    }
+
+    console.log(`[Scan] Hoàn thành! Tìm thấy ${allResults.length} tín hiệu`);
+
+    // Sắp xếp theo điểm và chọn TOP 3
+    const sortedResults = allResults.sort((a, b) => {
+      // Ưu tiên: Score cao + Confidence cao + Volume cao
+      const scoreA = Math.abs(a.totalScore) * 10 + a.confidence + Math.log10(a.volume24h);
+      const scoreB = Math.abs(b.totalScore) * 10 + b.confidence + Math.log10(b.volume24h);
+      return scoreB - scoreA;
+    });
+
+    const top3 = sortedResults.slice(0, 3);
+
+    res.json({
+      success: true,
+      totalScanned: allSymbols.length,
+      totalSignals: allResults.length,
+      top3: top3,
+      allSignals: sortedResults // Trả về tất cả để xem thêm nếu cần
+    });
+  } catch (error) {
+    console.error('Lỗi quét thị trường:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 /**

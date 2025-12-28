@@ -146,7 +146,7 @@ class BinanceService {
   }
 
   /**
-   * Lấy danh sách các symbol phổ biến
+   * Lấy danh sách các symbol phổ biến (fallback)
    * @returns {string[]} - Danh sách symbol
    */
   getPopularSymbols() {
@@ -161,6 +161,63 @@ class BinanceService {
       'SUIUSDT', 'SEIUSDT', 'TIAUSDT', 'FETUSDT', 'WIFUSDT',
       '1000PEPEUSDT', 'ORDIUSDT', 'STXUSDT', 'RUNEUSDT', 'AAVEUSDT'
     ];
+  }
+
+  /**
+   * Lấy TẤT CẢ Futures USDT symbols từ Binance
+   * Lọc theo volume và loại bỏ các symbol không phù hợp
+   * @param {number} minVolume - Volume tối thiểu 24h (USDT)
+   * @returns {Promise<Object[]>} - Danh sách symbol với thông tin volume
+   */
+  async getAllFuturesSymbols(minVolume = 10000000) {
+    try {
+      // Lấy thông tin exchange
+      const exchangeInfo = await axios.get(`${this.futuresUrl}/fapi/v1/exchangeInfo`);
+
+      // Lấy ticker 24h để có volume
+      const ticker24h = await axios.get(`${this.futuresUrl}/fapi/v1/ticker/24hr`);
+
+      // Tạo map volume
+      const volumeMap = {};
+      ticker24h.data.forEach(t => {
+        volumeMap[t.symbol] = {
+          volume: parseFloat(t.quoteVolume), // Volume tính bằng USDT
+          priceChange: parseFloat(t.priceChangePercent),
+          lastPrice: parseFloat(t.lastPrice)
+        };
+      });
+
+      // Lọc symbols
+      const validSymbols = exchangeInfo.data.symbols
+        .filter(s => {
+          // Chỉ lấy USDT perpetual
+          if (!s.symbol.endsWith('USDT')) return false;
+          if (s.contractType !== 'PERPETUAL') return false;
+          if (s.status !== 'TRADING') return false;
+
+          // Loại bỏ các symbol đặc biệt
+          if (s.symbol.includes('_')) return false;
+
+          // Kiểm tra volume
+          const vol = volumeMap[s.symbol];
+          if (!vol || vol.volume < minVolume) return false;
+
+          return true;
+        })
+        .map(s => ({
+          symbol: s.symbol,
+          ...volumeMap[s.symbol]
+        }))
+        .sort((a, b) => b.volume - a.volume); // Sắp xếp theo volume giảm dần
+
+      console.log(`[Binance] Tìm thấy ${validSymbols.length} futures symbols có volume > $${(minVolume/1000000).toFixed(0)}M`);
+
+      return validSymbols;
+    } catch (error) {
+      console.error('Lỗi lấy danh sách futures symbols:', error.message);
+      // Fallback về danh sách cố định
+      return this.getPopularSymbols().map(s => ({ symbol: s, volume: 0 }));
+    }
   }
 
   /**

@@ -8,10 +8,10 @@ const TechnicalIndicators = require('../indicators/technicalIndicators');
 class SignalEngine {
   constructor(config = {}) {
     this.config = {
-      // RSI Settings
+      // RSI Settings - Siết chặt hơn
       rsiPeriod: config.rsiPeriod || 14,
-      rsiOversold: config.rsiOversold || 30,
-      rsiOverbought: config.rsiOverbought || 70,
+      rsiOversold: config.rsiOversold || 25,      // Giảm từ 30 -> 25 (oversold thực sự)
+      rsiOverbought: config.rsiOverbought || 75,  // Tăng từ 70 -> 75 (overbought thực sự)
 
       // MACD Settings
       macdFast: config.macdFast || 12,
@@ -22,6 +22,7 @@ class SignalEngine {
       emaFast: config.emaFast || 9,
       emaSlow: config.emaSlow || 21,
       emaTrend: config.emaTrend || 50,
+      ema200: config.ema200 || 200, // Thêm EMA200 cho long-term trend
 
       // Bollinger Bands Settings
       bbPeriod: config.bbPeriod || 20,
@@ -29,11 +30,20 @@ class SignalEngine {
 
       // ATR Settings for Stop Loss
       atrPeriod: config.atrPeriod || 14,
-      atrMultiplierLong: config.atrMultiplierLong || 2.5,   // SL cho LONG (dưới entry) - tăng từ 1.5 để SL rộng hơn
-      atrMultiplierShort: config.atrMultiplierShort || 2.5, // SL cho SHORT (trên entry) - tăng để SL rộng hơn
+      atrMultiplierLong: config.atrMultiplierLong || 2.5,
+      atrMultiplierShort: config.atrMultiplierShort || 2.5,
+
+      // ADX Settings - Đo độ mạnh trend
+      adxPeriod: config.adxPeriod || 14,
+      adxTrendThreshold: config.adxTrendThreshold || 25, // ADX > 25 = có trend
+
+      // Signal Quality Settings - QUAN TRỌNG
+      minScoreForSignal: config.minScoreForSignal || 4,        // Tối thiểu 4 điểm để tạo signal (tăng từ 0)
+      minConfluence: config.minConfluence || 3,                 // Tối thiểu 3 indicators đồng thuận
+      sidewaysADXThreshold: config.sidewaysADXThreshold || 20,  // ADX < 20 = sideway
 
       // Risk Management
-      riskRewardRatio: config.riskRewardRatio || 1.5,       // Giảm từ 2 xuống 1.5 để TP dễ đạt hơn
+      riskRewardRatio: config.riskRewardRatio || 1.5,
       maxRiskPercent: config.maxRiskPercent || 2,
     };
   }
@@ -333,6 +343,101 @@ class SignalEngine {
   }
 
   /**
+   * Tìm Support và Resistance dựa trên Swing Points
+   * Phương pháp: Tìm các đỉnh/đáy gần nhất làm S/R
+   */
+  findSupportResistance(candles, currentPrice) {
+    if (candles.length < 50) {
+      return { supports: [], resistances: [], nearestSupport: null, nearestResistance: null };
+    }
+
+    const recentCandles = candles.slice(-50);
+    const supports = [];
+    const resistances = [];
+
+    // Tìm swing lows (support) và swing highs (resistance)
+    for (let i = 3; i < recentCandles.length - 3; i++) {
+      const curr = recentCandles[i];
+      const window = 3; // Xét 3 nến trước và sau
+
+      let isSwingLow = true;
+      let isSwingHigh = true;
+
+      for (let j = 1; j <= window; j++) {
+        const prev = recentCandles[i - j];
+        const next = recentCandles[i + j];
+
+        if (curr.low >= prev.low || curr.low >= next.low) {
+          isSwingLow = false;
+        }
+        if (curr.high <= prev.high || curr.high <= next.high) {
+          isSwingHigh = false;
+        }
+      }
+
+      if (isSwingLow) {
+        supports.push(curr.low);
+      }
+      if (isSwingHigh) {
+        resistances.push(curr.high);
+      }
+    }
+
+    // Thêm các mức quan trọng khác: Low và High gần nhất
+    const last20 = candles.slice(-20);
+    const recentLow = Math.min(...last20.map(c => c.low));
+    const recentHigh = Math.max(...last20.map(c => c.high));
+
+    if (!supports.includes(recentLow)) supports.push(recentLow);
+    if (!resistances.includes(recentHigh)) resistances.push(recentHigh);
+
+    // Tìm support/resistance gần giá hiện tại nhất
+    let nearestSupport = null;
+    let nearestResistance = null;
+    let minSupportDist = Infinity;
+    let minResistanceDist = Infinity;
+
+    // Support: phải DƯỚI giá hiện tại
+    for (const s of supports) {
+      if (s < currentPrice) {
+        const dist = currentPrice - s;
+        if (dist < minSupportDist) {
+          minSupportDist = dist;
+          nearestSupport = s;
+        }
+      }
+    }
+
+    // Resistance: phải TRÊN giá hiện tại
+    for (const r of resistances) {
+      if (r > currentPrice) {
+        const dist = r - currentPrice;
+        if (dist < minResistanceDist) {
+          minResistanceDist = dist;
+          nearestResistance = r;
+        }
+      }
+    }
+
+    // Nếu không tìm thấy, dùng % cố định
+    if (!nearestSupport) {
+      nearestSupport = currentPrice * 0.97; // 3% dưới giá
+    }
+    if (!nearestResistance) {
+      nearestResistance = currentPrice * 1.03; // 3% trên giá
+    }
+
+    return {
+      supports: supports.sort((a, b) => b - a),
+      resistances: resistances.sort((a, b) => a - b),
+      nearestSupport,
+      nearestResistance,
+      supportDistance: ((currentPrice - nearestSupport) / currentPrice * 100).toFixed(2) + '%',
+      resistanceDistance: ((nearestResistance - currentPrice) / currentPrice * 100).toFixed(2) + '%'
+    };
+  }
+
+  /**
    * Tính toán tất cả các chỉ báo
    */
   calculateIndicators(candles, closes, volumes) {
@@ -342,8 +447,10 @@ class SignalEngine {
       emaFast: TechnicalIndicators.EMA(closes, this.config.emaFast),
       emaSlow: TechnicalIndicators.EMA(closes, this.config.emaSlow),
       emaTrend: TechnicalIndicators.EMA(closes, this.config.emaTrend),
+      ema200: TechnicalIndicators.EMA(closes, this.config.ema200),
       bb: TechnicalIndicators.BollingerBands(closes, this.config.bbPeriod, this.config.bbStdDev),
       atr: TechnicalIndicators.ATR(candles, this.config.atrPeriod),
+      adx: TechnicalIndicators.ADX ? TechnicalIndicators.ADX(candles, this.config.adxPeriod) : null,
       volumeMA: TechnicalIndicators.VolumeMA(volumes, 20)
     };
   }
@@ -384,7 +491,8 @@ class SignalEngine {
       ema: {
         fast: getLatest(indicators.emaFast),
         slow: getLatest(indicators.emaSlow),
-        trend: getLatest(indicators.emaTrend)
+        trend: getLatest(indicators.emaTrend),
+        ema200: getLatest(indicators.ema200)
       },
       bb: {
         upper: getLatest(indicators.bb.upper),
@@ -392,6 +500,7 @@ class SignalEngine {
         lower: getLatest(indicators.bb.lower)
       },
       atr: getLatest(indicators.atr),
+      adx: indicators.adx ? getLatest(indicators.adx) : null,
       volumeMA: getLatest(indicators.volumeMA)
     };
   }
@@ -405,29 +514,80 @@ class SignalEngine {
       macd: this.analyzeMACD(indicators.macd),
       ema: this.analyzeEMA(indicators.ema, currentPrice),
       bb: this.analyzeBB(indicators.bb, currentPrice),
-      trend: this.analyzeTrend(indicators.ema, currentPrice)
+      trend: this.analyzeTrend(indicators.ema, currentPrice),
+      adx: this.analyzeADX(indicators.adx)
     };
 
     // Tính tổng điểm
     let totalScore = 0;
     let signalCount = 0;
+    let bullishCount = 0;  // Đếm số indicator bullish
+    let bearishCount = 0;  // Đếm số indicator bearish
 
-    Object.values(analysis).forEach(a => {
-      if (a.score !== undefined) {
+    // Các indicator chính để tính confluence
+    const mainIndicators = ['rsi', 'macd', 'ema', 'bb', 'trend'];
+
+    mainIndicators.forEach(key => {
+      const a = analysis[key];
+      if (a && a.score !== undefined) {
         totalScore += a.score;
         signalCount++;
+
+        if (a.score > 0) bullishCount++;
+        else if (a.score < 0) bearishCount++;
       }
     });
 
+    // ADX không tính vào totalScore nhưng dùng để filter
     analysis.totalScore = totalScore;
     analysis.averageScore = signalCount > 0 ? totalScore / signalCount : 0;
     analysis.strength = this.getSignalStrength(analysis.averageScore);
+
+    // Confluence: số lượng indicator đồng thuận
+    analysis.bullishConfluence = bullishCount;
+    analysis.bearishConfluence = bearishCount;
+    analysis.confluence = Math.max(bullishCount, bearishCount);
+
+    // Check sideway market (ADX < threshold)
+    analysis.isSideway = indicators.adx !== null && indicators.adx < this.config.sidewaysADXThreshold;
+
+    // Check có đủ trend strength không (ADX > trend threshold)
+    analysis.hasTrend = indicators.adx !== null && indicators.adx >= this.config.adxTrendThreshold;
 
     return analysis;
   }
 
   /**
-   * Phân tích RSI
+   * Phân tích ADX (Average Directional Index) - Đo độ mạnh trend
+   */
+  analyzeADX(adx) {
+    if (adx === null) {
+      return { signal: 'N/A', score: 0, value: null, description: 'Không có dữ liệu ADX' };
+    }
+
+    let signal = 'NEUTRAL';
+    let description = '';
+
+    if (adx >= 50) {
+      signal = 'VERY_STRONG_TREND';
+      description = `ADX ${adx.toFixed(1)} - Trend RẤT MẠNH (thuận lợi cho trend following)`;
+    } else if (adx >= 25) {
+      signal = 'STRONG_TREND';
+      description = `ADX ${adx.toFixed(1)} - Trend đủ mạnh để giao dịch`;
+    } else if (adx >= 20) {
+      signal = 'WEAK_TREND';
+      description = `ADX ${adx.toFixed(1)} - Trend yếu, cẩn thận`;
+    } else {
+      signal = 'SIDEWAY';
+      description = `ADX ${adx.toFixed(1)} - THỊ TRƯỜNG SIDEWAY, TRÁNH GIAO DỊCH`;
+    }
+
+    // ADX không cho điểm trực tiếp, chỉ dùng để filter
+    return { signal, score: 0, value: adx, description };
+  }
+
+  /**
+   * Phân tích RSI - Siết chặt hơn để tránh false signals
    */
   analyzeRSI(rsi) {
     const { current, previous } = rsi;
@@ -439,34 +599,45 @@ class SignalEngine {
       return { signal: 'N/A', score: 0, description: 'Không đủ dữ liệu RSI' };
     }
 
+    // CHỈ cho điểm khi RSI thực sự oversold/overbought
+    // RSI 40-60 = NEUTRAL, không cho điểm
     if (current < this.config.rsiOversold) {
+      // RSI < 25: Thực sự oversold
       signal = 'LONG';
       score = 2;
-      description = `RSI quá bán (${current.toFixed(2)}) - Cơ hội LONG`;
+      description = `RSI quá bán (${current.toFixed(1)}) - Cơ hội LONG`;
 
-      // RSI tăng từ vùng oversold
+      // RSI đang tăng từ vùng oversold = signal mạnh hơn
       if (previous && current > previous) {
         score = 3;
-        description += ' - RSI đang phục hồi';
+        description += ' + RSI đang phục hồi';
       }
     } else if (current > this.config.rsiOverbought) {
+      // RSI > 75: Thực sự overbought
       signal = 'SHORT';
       score = -2;
-      description = `RSI quá mua (${current.toFixed(2)}) - Cơ hội SHORT`;
+      description = `RSI quá mua (${current.toFixed(1)}) - Cơ hội SHORT`;
 
-      // RSI giảm từ vùng overbought
+      // RSI đang giảm từ vùng overbought = signal mạnh hơn
       if (previous && current < previous) {
         score = -3;
-        description += ' - RSI đang suy yếu';
+        description += ' + RSI đang suy yếu';
       }
-    } else if (current > 50) {
-      signal = 'BULLISH';
+    } else if (current < 35) {
+      // RSI 25-35: Gần oversold
+      signal = 'SLIGHTLY_BULLISH';
       score = 1;
-      description = `RSI bullish (${current.toFixed(2)})`;
-    } else {
-      signal = 'BEARISH';
+      description = `RSI ${current.toFixed(1)} - Gần oversold`;
+    } else if (current > 65) {
+      // RSI 65-75: Gần overbought
+      signal = 'SLIGHTLY_BEARISH';
       score = -1;
-      description = `RSI bearish (${current.toFixed(2)})`;
+      description = `RSI ${current.toFixed(1)} - Gần overbought`;
+    } else {
+      // RSI 35-65: NEUTRAL - KHÔNG cho điểm
+      signal = 'NEUTRAL';
+      score = 0;
+      description = `RSI ${current.toFixed(1)} - Trung tính (không có tín hiệu)`;
     }
 
     return { signal, score, value: current, description };
@@ -669,9 +840,10 @@ class SignalEngine {
 
   /**
    * Tạo tín hiệu trading cuối cùng với SL/TP
+   * ĐÃ CẢI THIỆN: Thêm filter sideway, confluence, score threshold
    */
   generateSignal(analysis, currentPrice, candles, indicators) {
-    const { totalScore, averageScore, strength } = analysis;
+    const { totalScore, averageScore, strength, bullishConfluence, bearishConfluence, isSideway, hasTrend } = analysis;
     const atr = this.getLatestIndicators(indicators).atr;
 
     let action = 'WAIT';
@@ -680,123 +852,199 @@ class SignalEngine {
     let takeProfit = null;
     let entry = currentPrice;
     let reason = [];
+    let rejectionReasons = []; // Lý do bị từ chối signal
 
-    // LONG: Điểm dương (score > 0)
-    if (totalScore > 0) {
-      action = 'LONG';
-      // Confidence dựa trên độ mạnh của tín hiệu (30-95%)
-      confidence = Math.min((totalScore / 8) * 100 + 30, 95);
+    // ============ FILTER 1: Sideway Market ============
+    // ADX < 20 = thị trường sideway, KHÔNG giao dịch
+    if (isSideway) {
+      rejectionReasons.push(`⛔ THỊ TRƯỜNG SIDEWAY (ADX < ${this.config.sidewaysADXThreshold}) - KHÔNG NÊN GIAO DỊCH`);
+    }
 
-      // Tính Stop Loss dựa trên ATR (LONG: SL dưới entry)
-      if (atr) {
-        stopLoss = currentPrice - (atr * this.config.atrMultiplierLong);
-        takeProfit = currentPrice + (atr * this.config.atrMultiplierLong * this.config.riskRewardRatio);
-      } else {
-        stopLoss = currentPrice * 0.98;
-        takeProfit = currentPrice * 1.04;
+    // ============ FILTER 2: Minimum Score ============
+    // Cần ít nhất 4 điểm để tạo signal (thay vì > 0)
+    const absScore = Math.abs(totalScore);
+    if (absScore < this.config.minScoreForSignal) {
+      rejectionReasons.push(`⚠️ Score (${totalScore}) chưa đủ mạnh (cần ≥${this.config.minScoreForSignal} hoặc ≤-${this.config.minScoreForSignal})`);
+    }
+
+    // ============ FILTER 3: Confluence ============
+    // Cần ít nhất 3 indicators đồng thuận
+    const confluence = totalScore > 0 ? bullishConfluence : bearishConfluence;
+    if (confluence < this.config.minConfluence) {
+      rejectionReasons.push(`⚠️ Chỉ có ${confluence} indicators đồng thuận (cần ≥${this.config.minConfluence})`);
+    }
+
+    // ============ QUYẾT ĐỊNH SIGNAL ============
+    const passAllFilters = rejectionReasons.length === 0;
+
+    // ============ TÌM SUPPORT/RESISTANCE ============
+    const srLevels = this.findSupportResistance(candles, currentPrice);
+
+    // LONG: Score dương VÀ pass tất cả filters VÀ gần support
+    const nearSupport = srLevels.nearestSupport &&
+                        (currentPrice - srLevels.nearestSupport) / currentPrice < 0.015; // Giá cách support < 1.5%
+
+    // SHORT: Score âm VÀ pass tất cả filters VÀ gần resistance
+    const nearResistance = srLevels.nearestResistance &&
+                           (srLevels.nearestResistance - currentPrice) / currentPrice < 0.015; // Giá cách resistance < 1.5%
+
+    if (totalScore >= this.config.minScoreForSignal && passAllFilters && bullishConfluence >= this.config.minConfluence) {
+      // Kiểm tra thêm: có support rõ ràng không?
+      if (!srLevels.nearestSupport) {
+        rejectionReasons.push('⚠️ Không tìm thấy support rõ ràng để đặt SL');
       }
 
-      reason = this.getLongReasons(analysis);
+      if (rejectionReasons.length === 0) {
+        action = 'LONG';
+        confidence = Math.min((totalScore / 10) * 100 + 30 + (bullishConfluence * 5), 95);
 
-      // Đánh giá độ mạnh tín hiệu
-      if (totalScore >= 5) {
-        reason.unshift('🔥 Tín hiệu LONG RẤT MẠNH');
-      } else if (totalScore >= 3) {
-        reason.unshift('✅ Tín hiệu LONG khá tốt');
-      } else {
-        reason.push('⚠️ Tín hiệu yếu - cân nhắc size nhỏ hoặc đợi thêm');
+        // Bonus confidence nếu gần support
+        if (nearSupport) {
+          confidence = Math.min(confidence + 10, 95);
+        }
+
+        // SL đặt dưới support gần nhất (có buffer 0.3%)
+        stopLoss = srLevels.nearestSupport * 0.997;
+
+        // TP dựa trên resistance hoặc R:R ratio
+        if (srLevels.nearestResistance) {
+          // TP = resistance gần nhất (trừ 0.2% buffer)
+          takeProfit = srLevels.nearestResistance * 0.998;
+        } else {
+          // Nếu không có resistance, dùng R:R 1.5
+          const slDistance = currentPrice - stopLoss;
+          takeProfit = currentPrice + (slDistance * 1.5);
+        }
+
+        reason = this.getLongReasons(analysis);
+
+        if (nearSupport) {
+          reason.unshift('🎯 LONG tại SUPPORT - Win rate cao');
+        } else if (totalScore >= 7 && bullishConfluence >= 4) {
+          reason.unshift('🔥 Tín hiệu LONG RẤT MẠNH');
+        } else {
+          reason.unshift('✅ Tín hiệu LONG tốt');
+        }
+
+        reason.push(`📊 Confluence: ${bullishConfluence}/5 indicators bullish`);
+        reason.push(`🛡️ Support: $${srLevels.nearestSupport?.toFixed(4) || 'N/A'}`);
+        reason.push(`🎯 Resistance: $${srLevels.nearestResistance?.toFixed(4) || 'N/A'}`);
       }
     }
-    // SHORT: Điểm âm (score < 0)
-    else if (totalScore < 0) {
-      action = 'SHORT';
-      confidence = Math.min((Math.abs(totalScore) / 8) * 100 + 30, 95);
-
-      // SHORT: SL trên entry - cần xa hơn vì giá hay quét lên trước khi xuống
-      if (atr) {
-        stopLoss = currentPrice + (atr * this.config.atrMultiplierShort);
-        takeProfit = currentPrice - (atr * this.config.atrMultiplierShort * this.config.riskRewardRatio);
-      } else {
-        stopLoss = currentPrice * 1.025; // 2.5% thay vì 2%
-        takeProfit = currentPrice * 0.95;
+    // SHORT: Score âm VÀ pass tất cả filters
+    else if (totalScore <= -this.config.minScoreForSignal && passAllFilters && bearishConfluence >= this.config.minConfluence) {
+      // Kiểm tra thêm: có resistance rõ ràng không?
+      if (!srLevels.nearestResistance) {
+        rejectionReasons.push('⚠️ Không tìm thấy resistance rõ ràng để đặt SL');
       }
 
-      reason = this.getShortReasons(analysis);
+      if (rejectionReasons.length === 0) {
+        action = 'SHORT';
+        confidence = Math.min((Math.abs(totalScore) / 10) * 100 + 30 + (bearishConfluence * 5), 95);
 
-      // Đánh giá độ mạnh tín hiệu
-      if (totalScore <= -5) {
-        reason.unshift('🔥 Tín hiệu SHORT RẤT MẠNH');
-      } else if (totalScore <= -3) {
-        reason.unshift('✅ Tín hiệu SHORT khá tốt');
-      } else {
-        reason.push('⚠️ Tín hiệu yếu - cân nhắc size nhỏ hoặc đợi thêm');
+        // Bonus confidence nếu gần resistance
+        if (nearResistance) {
+          confidence = Math.min(confidence + 10, 95);
+        }
+
+        // SL đặt trên resistance gần nhất (có buffer 0.3%)
+        stopLoss = srLevels.nearestResistance * 1.003;
+
+        // TP dựa trên support hoặc R:R ratio
+        if (srLevels.nearestSupport) {
+          // TP = support gần nhất (cộng 0.2% buffer)
+          takeProfit = srLevels.nearestSupport * 1.002;
+        } else {
+          // Nếu không có support, dùng R:R 1.5
+          const slDistance = stopLoss - currentPrice;
+          takeProfit = currentPrice - (slDistance * 1.5);
+        }
+
+        reason = this.getShortReasons(analysis);
+
+        if (nearResistance) {
+          reason.unshift('🎯 SHORT tại RESISTANCE - Win rate cao');
+        } else if (totalScore <= -7 && bearishConfluence >= 4) {
+          reason.unshift('🔥 Tín hiệu SHORT RẤT MẠNH');
+        } else {
+          reason.unshift('✅ Tín hiệu SHORT tốt');
+        }
+
+        reason.push(`📊 Confluence: ${bearishConfluence}/5 indicators bearish`);
+        reason.push(`🛡️ Support: $${srLevels.nearestSupport?.toFixed(4) || 'N/A'}`);
+        reason.push(`🎯 Resistance: $${srLevels.nearestResistance?.toFixed(4) || 'N/A'}`);
       }
     }
-    // WAIT: Score = 0 (hiếm khi xảy ra)
+    // WAIT: Không đủ điều kiện
     else {
-      reason = ['Thị trường sideway - các chỉ báo cân bằng', 'Nên đứng ngoài chờ đợi'];
+      action = 'WAIT';
+      reason = ['🛑 KHÔNG CÓ TÍN HIỆU - Đứng ngoài thị trường'];
+
+      // Thêm lý do bị từ chối
+      if (rejectionReasons.length > 0) {
+        reason = reason.concat(rejectionReasons);
+      } else {
+        reason.push('Các chỉ báo chưa hội tụ đủ mạnh');
+      }
+
+      // Thông tin hiện tại
+      reason.push(`📊 Score: ${totalScore} | Bullish: ${bullishConfluence} | Bearish: ${bearishConfluence}`);
+
+      if (!hasTrend && !isSideway) {
+        reason.push('💡 Trend yếu - chờ ADX tăng trên 25');
+      }
     }
 
     // Tính Risk/Reward
     const riskPercent = stopLoss ? Math.abs((currentPrice - stopLoss) / currentPrice * 100) : null;
     const rewardPercent = takeProfit ? Math.abs((takeProfit - currentPrice) / currentPrice * 100) : null;
 
-    // Tính đòn bẩy khuyến nghị dựa trên:
-    // 1. Độ mạnh tín hiệu (totalScore)
-    // 2. Volatility (ATR%)
-    // 3. Khoảng cách SL (riskPercent) - SL càng gần thì leverage có thể cao hơn
+    // ============ TÍNH LEVERAGE AN TOÀN ============
+    // Mục tiêu: Lỗ max 20-30% tài khoản, không quá cao
     let suggestedLeverage = 1;
     let leverageRisk = 'LOW';
 
     if (action !== 'WAIT' && riskPercent) {
-      const atrPercent = atr ? (atr / currentPrice) * 100 : 1;
       const absScore = Math.abs(totalScore);
+      const confluenceScore = totalScore > 0 ? bullishConfluence : bearishConfluence;
 
-      // Logic tính leverage mới:
-      // Dựa trên % SL để tính leverage tối đa an toàn
-      // Nếu SL = 2% và muốn rủi ro tối đa 50% tài khoản khi sai -> max leverage = 50/2 = 25x
-      // Nếu SL = 3% -> max leverage = 50/3 = 16x
+      // Tính leverage dựa trên SL%
+      // Mục tiêu: SL% x Leverage = 20-30% tài khoản
+      // Ví dụ: SL 2% x 10x = 20% (an toàn)
+      //        SL 3% x 10x = 30% (vừa phải)
+      const targetRisk = 25; // Mục tiêu lỗ 25% tài khoản
+      const calculatedLeverage = Math.floor(targetRisk / riskPercent);
 
-      // Tính leverage dựa trên khoảng cách SL
-      // Công thức: leverage = targetRisk / riskPercent
-      // targetRisk: % tài khoản sẵn sàng mất nếu SL (20-40% tùy tín hiệu)
-
-      let targetRisk = 25; // Mặc định sẵn sàng rủi ro 25% tài khoản
-
-      if (absScore >= 5) {
-        targetRisk = 40; // Tín hiệu rất mạnh -> chấp nhận rủi ro 40%
-      } else if (absScore >= 3) {
-        targetRisk = 30; // Tín hiệu khá -> rủi ro 30%
-      } else {
-        targetRisk = 20; // Tín hiệu yếu -> rủi ro 20%
+      // Leverage cố định theo độ mạnh tín hiệu
+      let desiredLeverage = 8;
+      if (absScore >= 7 && confluenceScore >= 4) {
+        desiredLeverage = 15;  // Tín hiệu rất mạnh: max 15x
+      } else if (absScore >= 5 && confluenceScore >= 3) {
+        desiredLeverage = 12;  // Tín hiệu mạnh: 12x
+      } else if (absScore >= 4 && confluenceScore >= 3) {
+        desiredLeverage = 10;  // Tín hiệu khá: 10x
       }
 
-      // Tính leverage từ SL%
-      let calculatedLeverage = Math.floor(targetRisk / riskPercent);
+      // Lấy min để đảm bảo an toàn
+      suggestedLeverage = Math.min(desiredLeverage, calculatedLeverage);
+      suggestedLeverage = Math.max(suggestedLeverage, 5);  // Tối thiểu 5x
+      suggestedLeverage = Math.min(suggestedLeverage, 15); // Max 15x
 
-      // Giới hạn leverage theo volatility
-      let maxLeverage = 50;
-      if (atrPercent >= 3) {
-        maxLeverage = 30; // Volatility rất cao -> max 30x
-      } else if (atrPercent >= 2) {
-        maxLeverage = 40; // Volatility cao -> max 40x
-      }
+      // Tính lỗ thực tế với leverage này
+      const accountRiskPercent = riskPercent * suggestedLeverage;
 
-      suggestedLeverage = Math.min(calculatedLeverage, maxLeverage);
-      suggestedLeverage = Math.max(suggestedLeverage, 5); // Tối thiểu 5x
-
-      // Đánh giá mức độ rủi ro
-      if (suggestedLeverage >= 40) {
+      // Đánh giá rủi ro
+      if (accountRiskPercent >= 35) {
         leverageRisk = 'HIGH';
-      } else if (suggestedLeverage >= 25) {
+      } else if (accountRiskPercent >= 25) {
         leverageRisk = 'MODERATE';
       } else {
         leverageRisk = 'LOW';
       }
 
       // Thêm gợi ý leverage vào reasons
-      reason.push(`💡 Đòn bẩy khuyến nghị: ${suggestedLeverage}x (${leverageRisk} risk)`);
-      reason.push(`📊 Với SL ${riskPercent.toFixed(2)}%, bẩy ${suggestedLeverage}x -> rủi ro ~${(riskPercent * suggestedLeverage).toFixed(0)}% tài khoản`);
+      reason.push(`💡 Đòn bẩy: ${suggestedLeverage}x (${leverageRisk} risk)`);
+      reason.push(`📊 SL ${riskPercent.toFixed(2)}% x ${suggestedLeverage}x = lỗ ~${accountRiskPercent.toFixed(0)}% nếu thua`);
     }
 
     return {

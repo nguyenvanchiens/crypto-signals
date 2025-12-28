@@ -158,7 +158,8 @@
     }
 
     .signal-short {
-      background: linear-gradient(45deg, #ff1744, #ff5252);
+      background: linear-gradient(135deg, #1a1a2e 0%, #2d1f3d 100%);
+      border: 1px solid #e040fb40;
       color: #fff;
     }
 
@@ -198,7 +199,7 @@
     }
 
     .bullish { color: #00ff88; }
-    .bearish { color: #ff5252; }
+    .bearish { color: #e040fb; }
     .neutral { color: #ffd700; }
 
     .trade-setup {
@@ -400,7 +401,7 @@
     }
 
     .btn-short {
-      background: linear-gradient(45deg, #ff1744, #ff5252) !important;
+      background: linear-gradient(45deg, #9c27b0, #e040fb) !important;
       color: #fff !important;
     }
 
@@ -418,7 +419,7 @@
     }
 
     .position-card.short {
-      border-left-color: #ff5252;
+      border-left-color: #e040fb;
     }
 
     .position-card.profit {
@@ -1968,6 +1969,33 @@
                           !window.location.hostname.includes('127.0.0.1') &&
                           !window.location.hostname.match(/^192\.168\./);
 
+    // ===================== FORMAT PRICE HELPER =====================
+    // Format giá thông minh dựa trên độ lớn của giá
+    function formatPrice(price) {
+      if (price === null || price === undefined || isNaN(price)) return 'N/A';
+
+      const absPrice = Math.abs(price);
+      let decimals;
+
+      if (absPrice >= 1000) {
+        decimals = 2;      // BTC: $94000.12
+      } else if (absPrice >= 100) {
+        decimals = 2;      // ETH: $3400.25
+      } else if (absPrice >= 10) {
+        decimals = 3;      // SOL: $180.456
+      } else if (absPrice >= 1) {
+        decimals = 4;      // XRP: $2.1234
+      } else if (absPrice >= 0.1) {
+        decimals = 5;      // SEI: $0.11734
+      } else if (absPrice >= 0.01) {
+        decimals = 6;      // SHIB: $0.000025
+      } else {
+        decimals = 8;      // Very small prices
+      }
+
+      return price.toFixed(decimals);
+    }
+
     // ===================== TOAST NOTIFICATION SYSTEM =====================
 
     function showToast(options) {
@@ -2867,22 +2895,22 @@
           slPrice = Math.min(currentPrice - atr * atrMultiplier, recentLow * 0.995);
           tpPrice = currentPrice + Math.abs(currentPrice - slPrice) * rrRatio;
 
-          stopLoss = slPrice.toFixed(currentPrice > 100 ? 2 : 6);
-          takeProfit = tpPrice.toFixed(currentPrice > 100 ? 2 : 6);
+          stopLoss = formatPrice(slPrice);
+          takeProfit = formatPrice(tpPrice);
         } else if (action === 'SHORT') {
           // SL trên swing high gần nhất hoặc 2x ATR
           const recentHigh = Math.max(...candles.slice(-10).map(c => c.high));
           slPrice = Math.max(currentPrice + atr * atrMultiplier, recentHigh * 1.005);
           tpPrice = currentPrice - Math.abs(slPrice - currentPrice) * rrRatio;
 
-          stopLoss = slPrice.toFixed(currentPrice > 100 ? 2 : 6);
-          takeProfit = tpPrice.toFixed(currentPrice > 100 ? 2 : 6);
+          stopLoss = formatPrice(slPrice);
+          takeProfit = formatPrice(tpPrice);
         } else {
           // WAIT - vẫn tính SL/TP để hiển thị
           slPrice = currentPrice - atr * atrMultiplier;
           tpPrice = currentPrice + atr * atrMultiplier * rrRatio;
-          stopLoss = slPrice.toFixed(currentPrice > 100 ? 2 : 6);
-          takeProfit = tpPrice.toFixed(currentPrice > 100 ? 2 : 6);
+          stopLoss = formatPrice(slPrice);
+          takeProfit = formatPrice(tpPrice);
         }
 
         // Calculate leverage based on signal strength và risk
@@ -3342,7 +3370,7 @@
       }
     }
 
-    // Scan multiple symbols
+    // Scan multiple symbols - QUÉT TOÀN BỘ THỊ TRƯỜNG
     async function scanSignals() {
       const interval = document.getElementById('multi-interval').value;
       const btn = document.getElementById('scanBtn');
@@ -3350,58 +3378,104 @@
 
       btn.disabled = true;
       btn.textContent = 'Đang quét...';
-      resultDiv.innerHTML = '<div class="loading">Đang quét tín hiệu</div>';
+      resultDiv.innerHTML = '<div class="loading">🔍 Đang quét TOÀN BỘ thị trường Futures (~100+ đồng)...</div>';
 
       try {
         let data;
 
         if (IS_CLOUDFLARE) {
-          // Client-side scan for Cloudflare - quét 30 đồng phổ biến
-          console.log('[Cloudflare Mode] Scanning symbols from browser...');
-          const topSymbols = [
-            'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
-            'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'DOTUSDT', 'LINKUSDT',
-            'MATICUSDT', 'LTCUSDT', 'ATOMUSDT', 'UNIUSDT', 'APTUSDT',
-            'ARBUSDT', 'OPUSDT', 'NEARUSDT', 'FILUSDT', 'INJUSDT',
-            'SUIUSDT', 'SEIUSDT', 'TIAUSDT', 'FETUSDT', 'WIFUSDT',
-            '1000PEPEUSDT', 'ORDIUSDT', 'STXUSDT', 'RUNEUSDT', 'AAVEUSDT'
-          ];
+          // Client-side scan for Cloudflare - quét từ Binance trực tiếp
+          console.log('[Cloudflare Mode] Scanning ALL futures symbols from browser...');
+
+          // Lấy tất cả futures symbols
+          resultDiv.innerHTML = '<div class="loading">🔍 Đang lấy danh sách symbols từ Binance...</div>';
+          const exchangeInfo = await fetch('https://fapi.binance.com/fapi/v1/exchangeInfo').then(r => r.json());
+          const ticker24h = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr').then(r => r.json());
+
+          // Tạo map volume
+          const volumeMap = {};
+          ticker24h.forEach(t => {
+            volumeMap[t.symbol] = {
+              volume: parseFloat(t.quoteVolume),
+              priceChange: parseFloat(t.priceChangePercent),
+              lastPrice: parseFloat(t.lastPrice)
+            };
+          });
+
+          // Lọc symbols có volume > 10M USDT
+          const validSymbols = exchangeInfo.symbols
+            .filter(s => {
+              if (!s.symbol.endsWith('USDT')) return false;
+              if (s.contractType !== 'PERPETUAL') return false;
+              if (s.status !== 'TRADING') return false;
+              if (s.symbol.includes('_')) return false;
+              const vol = volumeMap[s.symbol];
+              return vol && vol.volume > 10000000;
+            })
+            .map(s => ({ symbol: s.symbol, ...volumeMap[s.symbol] }))
+            .sort((a, b) => b.volume - a.volume);
+
+          console.log(`Found ${validSymbols.length} symbols with volume > 10M`);
+
           const results = [];
-
-          // Hiển thị progress
           let scanned = 0;
-          const updateProgress = () => {
-            resultDiv.innerHTML = `<div class="loading">Đang quét tín hiệu... ${scanned}/${topSymbols.length}</div>`;
-          };
 
-          for (const symbol of topSymbols) {
+          for (const symInfo of validSymbols) {
             try {
-              const candles = await fetchBinanceKlines(symbol, interval, 100);
+              resultDiv.innerHTML = `<div class="loading">🔍 Đang quét ${symInfo.symbol}... (${scanned}/${validSymbols.length})</div>`;
+              const candles = await fetchBinanceKlines(symInfo.symbol, interval, 100);
               const result = clientSignalEngine.analyze(candles);
-              result.symbol = symbol;
-              result.interval = interval;
-              results.push(result);
+
+              if (result.signal && result.signal.action !== 'WAIT') {
+                results.push({
+                  symbol: symInfo.symbol,
+                  volume24h: symInfo.volume,
+                  priceChange24h: symInfo.priceChange,
+                  lastPrice: symInfo.lastPrice,
+                  action: result.signal.action,
+                  confidence: parseFloat(result.signal.confidence),
+                  totalScore: result.signal.totalScore,
+                  strength: result.signal.strength,
+                  entry: result.signal.entry,
+                  stopLoss: result.signal.stopLoss,
+                  takeProfit: result.signal.takeProfit,
+                  riskPercent: result.signal.riskPercent,
+                  rewardPercent: result.signal.rewardPercent,
+                  riskReward: result.signal.riskReward,
+                  leverage: result.signal.leverage,
+                  reason: result.signal.reason,
+                  interval: interval
+                });
+              }
               scanned++;
-              updateProgress();
-              // Small delay to avoid rate limit
-              await new Promise(resolve => setTimeout(resolve, 50));
+              await new Promise(resolve => setTimeout(resolve, 30));
             } catch (err) {
-              console.error(`Error scanning ${symbol}:`, err);
-              results.push({ symbol, error: err.message });
               scanned++;
-              updateProgress();
             }
           }
 
-          data = { success: true, data: results };
+          // Sắp xếp và lấy top 3
+          results.sort((a, b) => {
+            const scoreA = Math.abs(a.totalScore) * 10 + a.confidence + Math.log10(a.volume24h);
+            const scoreB = Math.abs(b.totalScore) * 10 + b.confidence + Math.log10(b.volume24h);
+            return scoreB - scoreA;
+          });
+
+          data = {
+            success: true,
+            totalScanned: validSymbols.length,
+            totalSignals: results.length,
+            top3: results.slice(0, 3),
+            allSignals: results
+          };
         } else {
-          // Server-side scan for local/VPS
-          const response = await fetch(`${API_BASE}/api/signals?interval=${interval}`);
+          // Server-side scan - QUÉT TOÀN BỘ
+          const response = await fetch(`${API_BASE}/api/scan-all?interval=${interval}`);
           data = await response.json();
         }
 
         if (data.success) {
-          renderMultiSignals(data.data);
+          renderTop3Signals(data);
         } else {
           resultDiv.innerHTML = `<div class="signal-card"><p style="color: #ff5252;">Lỗi: ${data.error}</p></div>`;
         }
@@ -3411,6 +3485,104 @@
 
       btn.disabled = false;
       btn.textContent = 'Quét tất cả';
+    }
+
+    // Render TOP 3 signals
+    function renderTop3Signals(data) {
+      const resultDiv = document.getElementById('multi-result');
+
+      let html = `
+        <div style="padding: 15px; background: linear-gradient(135deg, rgba(0,217,255,0.1), rgba(0,255,136,0.1)); border-radius: 12px; margin-bottom: 20px; text-align: center;">
+          <h3 style="color: #00d9ff; margin-bottom: 10px;">🏆 TOP 3 TÍN HIỆU TỐT NHẤT</h3>
+          <p style="color: #888; font-size: 0.9em;">
+            Đã quét <strong style="color: #00ff88;">${data.totalScanned}</strong> đồng |
+            Tìm thấy <strong style="color: #ffd700;">${data.totalSignals}</strong> tín hiệu
+          </p>
+        </div>
+      `;
+
+      if (data.top3.length === 0) {
+        html += `<div class="signal-card" style="text-align: center; padding: 30px;">
+          <p style="color: #ffd700;">⚠️ Không tìm thấy tín hiệu nào đủ mạnh</p>
+          <p style="color: #888; margin-top: 10px;">Thị trường đang sideway hoặc chưa có điểm vào tốt</p>
+        </div>`;
+      } else {
+        // Render top 3
+        data.top3.forEach((s, index) => {
+          const rankEmoji = ['🥇', '🥈', '🥉'][index];
+          const signalClass = s.action === 'LONG' ? 'signal-long' : 'signal-short';
+          const actionColor = s.action === 'LONG' ? '#00ff88' : '#e040fb'; // Màu tím cho SHORT
+          const volumeFormatted = (s.volume24h / 1000000).toFixed(1) + 'M';
+
+          html += `
+            <div class="signal-card ${signalClass}" style="margin-bottom: 15px; border: 2px solid ${actionColor}40;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div>
+                  <span style="font-size: 1.5em;">${rankEmoji}</span>
+                  <span style="font-size: 1.3em; font-weight: bold; margin-left: 10px;">${s.symbol}</span>
+                  <span style="background: ${actionColor}; color: #000; padding: 3px 10px; border-radius: 4px; font-weight: bold; margin-left: 10px;">${s.action}</span>
+                </div>
+                <div style="text-align: right;">
+                  <div style="color: #00d9ff; font-size: 0.85em;">Score: ${s.totalScore}</div>
+                  <div style="color: #888; font-size: 0.8em;">Vol: $${volumeFormatted}</div>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px;">
+                <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; text-align: center;">
+                  <div style="color: #888; font-size: 0.75em;">Entry</div>
+                  <div style="color: #fff; font-weight: bold;">$${parseFloat(s.entry).toFixed(4)}</div>
+                </div>
+                <div style="background: rgba(255,82,82,0.1); padding: 10px; border-radius: 8px; text-align: center;">
+                  <div style="color: #888; font-size: 0.75em;">Stop Loss</div>
+                  <div style="color: #ff5252; font-weight: bold;">$${s.stopLoss}</div>
+                  <div style="color: #ff5252; font-size: 0.75em;">${s.riskPercent}</div>
+                </div>
+                <div style="background: rgba(0,255,136,0.1); padding: 10px; border-radius: 8px; text-align: center;">
+                  <div style="color: #888; font-size: 0.75em;">Take Profit</div>
+                  <div style="color: #00ff88; font-weight: bold;">$${s.takeProfit}</div>
+                  <div style="color: #00ff88; font-size: 0.75em;">${s.rewardPercent}</div>
+                </div>
+                <div style="background: rgba(0,217,255,0.1); padding: 10px; border-radius: 8px; text-align: center;">
+                  <div style="color: #888; font-size: 0.75em;">Leverage</div>
+                  <div style="color: #00d9ff; font-weight: bold;">${s.leverage}x</div>
+                  <div style="color: #ffd700; font-size: 0.75em;">R:R ${s.riskReward}</div>
+                </div>
+              </div>
+
+              <div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px; font-size: 0.85em;">
+                ${s.reason ? s.reason.slice(0, 5).map(r => `<div style="color: #aaa; margin: 3px 0;">${r}</div>`).join('') : ''}
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      // Thêm section hiển thị tất cả signals khác
+      if (data.allSignals && data.allSignals.length > 3) {
+        html += `
+          <div style="margin-top: 20px;">
+            <details>
+              <summary style="cursor: pointer; color: #00d9ff; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                📋 Xem thêm ${data.allSignals.length - 3} tín hiệu khác
+              </summary>
+              <div style="margin-top: 10px;">
+        `;
+
+        data.allSignals.slice(3).forEach((s, index) => {
+          const actionColor = s.action === 'LONG' ? '#00ff88' : '#e040fb';
+          html += `
+            <div style="display: flex; justify-content: space-between; padding: 8px; background: rgba(255,255,255,0.02); margin: 5px 0; border-radius: 5px; border-left: 3px solid ${actionColor};">
+              <span><strong>${s.symbol}</strong> <span style="color: ${actionColor};">${s.action}</span></span>
+              <span style="color: #888;">Score: ${s.totalScore} | Entry: $${parseFloat(s.entry).toFixed(4)}</span>
+            </div>
+          `;
+        });
+
+        html += `</div></details></div>`;
+      }
+
+      resultDiv.innerHTML = html;
     }
 
     // Render multiple signals
@@ -3453,7 +3625,7 @@
             <div onclick="selectSymbol('${s.symbol}')" style="cursor: pointer;">
               <div style="color: #888; font-size: 0.85em;">Score: ${s.signal.totalScore} | ${s.signal.strength}</div>
               <div class="confidence-bar">
-                <div class="confidence-fill" style="width: ${confidence}%; background: ${s.signal.action === 'LONG' ? '#00ff88' : s.signal.action === 'SHORT' ? '#ff5252' : '#888'};"></div>
+                <div class="confidence-fill" style="width: ${confidence}%; background: ${s.signal.action === 'LONG' ? '#00ff88' : s.signal.action === 'SHORT' ? '#e040fb' : '#888'};"></div>
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -3659,7 +3831,7 @@
           // Confirm close with current price
           const result = await showConfirm(
             'Đóng lệnh ' + position.symbol,
-            `Loại: <strong style="color: ${position.type === 'LONG' ? '#00ff88' : '#ff5252'}">${position.type}</strong><br>
+            `Loại: <strong style="color: ${position.type === 'LONG' ? '#00ff88' : '#e040fb'}">${position.type}</strong><br>
             Entry: <strong>$${position.entryPrice.toLocaleString()}</strong><br>
             Giá hiện tại: <strong style="color: #ffc107;">$${currentPrice.toLocaleString()}</strong><br><br>
             <small style="color: #888;">Lệnh sẽ được đóng ngay với giá thị trường hiện tại.</small>`,
@@ -3873,7 +4045,7 @@
             <div class="modal-body">
               <p style="margin-bottom: 15px;">
                 <strong>${position.symbol}</strong> -
-                <span style="color: ${position.type === 'LONG' ? '#00ff88' : '#ff5252'}">${position.type}</span>
+                <span style="color: ${position.type === 'LONG' ? '#00ff88' : '#e040fb'}">${position.type}</span>
                 <br><small style="color: #888;">Entry: $${position.entryPrice.toLocaleString()}</small>
               </p>
               <div style="margin-bottom: 15px;">
