@@ -23,22 +23,21 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Khởi tạo services
 const binanceService = new BinanceService();
 const signalEngine = new SignalEngine({
-  // RSI Settings - Siết chặt để chỉ vào lệnh khi thực sự oversold/overbought
+  // RSI Settings - Nới lỏng để có tín hiệu
   rsiPeriod: 14,
-  rsiOversold: 30,      // RSI < 30 = oversold
-  rsiOverbought: 70,    // RSI > 70 = overbought
+  rsiOversold: 35,      // RSI < 35 = oversold
+  rsiOverbought: 65,    // RSI > 65 = overbought
 
-  // Risk/Reward - SL/TP giờ dựa trên Support/Resistance
-  // Các giá trị ATR multiplier chỉ dùng làm backup
+  // Risk/Reward - SL/TP dựa trên Support/Resistance
   atrMultiplierLong: 2.0,
   atrMultiplierShort: 2.0,
   riskRewardRatio: 1.5,
 
-  // Signal Quality - Yêu cầu CAO để tăng win rate
-  minScoreForSignal: 5,     // Cần ít nhất 5 điểm (tăng từ 4)
-  minConfluence: 4,          // Cần 4 indicators đồng thuận (tăng từ 3)
-  sidewaysADXThreshold: 22,  // ADX < 22 = sideway, không giao dịch
-  adxTrendThreshold: 25      // ADX > 25 = có trend rõ ràng
+  // Signal Quality - Cân bằng giữa chất lượng và số lượng
+  minScoreForSignal: 3,     // Cần ít nhất 3 điểm
+  minConfluence: 2,          // Cần 2 indicators đồng thuận
+  sidewaysADXThreshold: 18,  // ADX < 18 = sideway
+  adxTrendThreshold: 20      // ADX > 20 = có trend
 });
 
 // Cache để lưu tín hiệu
