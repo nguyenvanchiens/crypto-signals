@@ -153,8 +153,9 @@
     }
 
     .signal-long {
-      background: linear-gradient(45deg, #00c853, #00e676);
-      color: #1a1a2e;
+      background: linear-gradient(135deg, #1a1a2e 0%, #1a2e1f 100%);
+      border: 1px solid #00ff8840;
+      color: #fff;
     }
 
     .signal-short {
@@ -397,11 +398,12 @@
     }
 
     .btn-long {
-      background: linear-gradient(45deg, #00c853, #00e676) !important;
+      background: linear-gradient(45deg, #0d7a3e, #10a050) !important;
+      color: #fff !important;
     }
 
     .btn-short {
-      background: linear-gradient(45deg, #9c27b0, #e040fb) !important;
+      background: linear-gradient(45deg, #7b1fa2, #ab47bc) !important;
       color: #fff !important;
     }
 
@@ -868,6 +870,11 @@
     @keyframes progress {
       from { width: 100%; }
       to { width: 0%; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(0, 217, 255, 0.4); }
+      50% { box-shadow: 0 0 20px 10px rgba(0, 217, 255, 0.6); }
     }
 
     /* ===================== CHART MODAL ===================== */
@@ -3507,20 +3514,23 @@
           <p style="color: #888; margin-top: 10px;">Thị trường đang sideway hoặc chưa có điểm vào tốt</p>
         </div>`;
       } else {
+        // Lưu data để dùng khi click
+        window.scannedSignals = data.top3;
+
         // Render top 3
         data.top3.forEach((s, index) => {
           const rankEmoji = ['🥇', '🥈', '🥉'][index];
           const signalClass = s.action === 'LONG' ? 'signal-long' : 'signal-short';
-          const actionColor = s.action === 'LONG' ? '#00ff88' : '#e040fb'; // Màu tím cho SHORT
+          const actionColor = s.action === 'LONG' ? '#10a050' : '#ab47bc';
           const volumeFormatted = (s.volume24h / 1000000).toFixed(1) + 'M';
 
           html += `
-            <div class="signal-card ${signalClass}" style="margin-bottom: 15px; border: 2px solid ${actionColor}40;">
+            <div class="signal-card ${signalClass}" style="margin-bottom: 15px; border: 1px solid ${actionColor}60; cursor: pointer;" onclick="openTradeFromSignal(${index})">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <div>
                   <span style="font-size: 1.5em;">${rankEmoji}</span>
                   <span style="font-size: 1.3em; font-weight: bold; margin-left: 10px;">${s.symbol}</span>
-                  <span style="background: ${actionColor}; color: #000; padding: 3px 10px; border-radius: 4px; font-weight: bold; margin-left: 10px;">${s.action}</span>
+                  <span style="background: ${actionColor}; color: #fff; padding: 3px 10px; border-radius: 4px; font-weight: bold; margin-left: 10px;">${s.action}</span>
                 </div>
                 <div style="text-align: right;">
                   <div style="color: #00d9ff; font-size: 0.85em;">Score: ${s.totalScore}</div>
@@ -3550,8 +3560,17 @@
                 </div>
               </div>
 
+              <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button onclick="event.stopPropagation(); openTradeFromSignal(${index})" class="btn-${s.action.toLowerCase()}" style="flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1em;">
+                  🚀 VÀO LỆNH ${s.action}
+                </button>
+                <button onclick="event.stopPropagation(); openChart('${s.symbol}')" style="padding: 12px 20px; background: rgba(0,217,255,0.2); border: 1px solid #00d9ff; color: #00d9ff; border-radius: 8px; cursor: pointer;">
+                  📈
+                </button>
+              </div>
+
               <div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px; font-size: 0.85em;">
-                ${s.reason ? s.reason.slice(0, 5).map(r => `<div style="color: #aaa; margin: 3px 0;">${r}</div>`).join('') : ''}
+                ${s.reason ? s.reason.slice(0, 3).map(r => `<div style="color: #aaa; margin: 3px 0;">${r}</div>`).join('') : ''}
               </div>
             </div>
           `;
@@ -3645,6 +3664,47 @@
       switchTab('single');
       document.querySelector('.tab').click();
       analyzeSignal();
+    }
+
+    // Mở form vào lệnh từ tín hiệu đã quét
+    async function openTradeFromSignal(index) {
+      const signal = window.scannedSignals[index];
+      if (!signal) {
+        alert('Không tìm thấy tín hiệu!');
+        return;
+      }
+
+      // Lưu thông tin signal để điền sau khi phân tích
+      window.pendingSignal = signal;
+
+      // Chọn symbol và chuyển sang tab single
+      document.getElementById('symbol').value = signal.symbol;
+      switchTab('single');
+
+      // Phân tích symbol
+      await analyzeSignal();
+
+      // Sau khi phân tích xong, điền thông số từ signal đã quét
+      setTimeout(() => {
+        const orderEntry = document.getElementById('order-entry');
+        const orderSl = document.getElementById('order-sl');
+        const orderTp = document.getElementById('order-tp');
+        const orderLeverage = document.getElementById('order-leverage');
+
+        if (orderEntry) orderEntry.value = parseFloat(signal.entry).toFixed(6);
+        if (orderSl) orderSl.value = parseFloat(signal.stopLoss);
+        if (orderTp) orderTp.value = parseFloat(signal.takeProfit);
+        if (orderLeverage) orderLeverage.value = signal.leverage;
+
+        // Scroll đến form vào lệnh
+        const orderForm = document.querySelector('.order-entry');
+        if (orderForm) {
+          orderForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          orderForm.style.animation = 'pulse 0.5s ease-in-out 2';
+        }
+
+        showToast(`Đã điền thông tin ${signal.action} ${signal.symbol}`, 'success');
+      }, 500);
     }
 
     // Position calculator
@@ -4533,19 +4593,24 @@
       document.body.style.overflow = '';
     }
 
-    // Close chart modal on overlay click
-    document.getElementById('chart-modal-overlay').addEventListener('click', function(e) {
-      if (e.target === this) {
-        closeChart();
+    // Chart modal events - sẽ được khởi tạo trong DOMContentLoaded
+    function initChartModal() {
+      const chartOverlay = document.getElementById('chart-modal-overlay');
+      if (chartOverlay) {
+        chartOverlay.addEventListener('click', function(e) {
+          if (e.target === this) {
+            closeChart();
+          }
+        });
       }
-    });
 
-    // Close chart modal on Escape key
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        closeChart();
-      }
-    });
+      // Close chart modal on Escape key
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          closeChart();
+        }
+      });
+    }
   </script>
 
   <!-- Chart Modal -->
@@ -5222,6 +5287,9 @@
       showBinanceFeatures();
 
       loadApiConfig();
+
+      // Init chart modal
+      initChartModal();
     });
   </script>
 </body>

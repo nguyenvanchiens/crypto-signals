@@ -120,13 +120,14 @@ class BinanceService {
   }
 
   /**
-   * Lấy thông tin 24h của symbol
+   * Lấy thông tin 24h của symbol (Futures)
    * @param {string} symbol - Ví dụ: BTCUSDT
    * @returns {Promise<Object>} - Thông tin 24h
    */
   async get24hStats(symbol) {
     try {
-      const response = await axios.get(`${this.baseUrl}/api/v3/ticker/24hr`, {
+      // Dùng Futures API thay vì Spot
+      const response = await axios.get(`${this.futuresUrl}/fapi/v1/ticker/24hr`, {
         params: { symbol: symbol.toUpperCase() }
       });
 
@@ -141,7 +142,16 @@ class BinanceService {
       };
     } catch (error) {
       console.error('Lỗi lấy thống kê 24h:', error.message);
-      throw error;
+      // Trả về object rỗng thay vì throw để không crash
+      return {
+        symbol: symbol,
+        priceChange: 0,
+        priceChangePercent: 0,
+        highPrice: 0,
+        lowPrice: 0,
+        volume: 0,
+        quoteVolume: 0
+      };
     }
   }
 
