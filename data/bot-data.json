@@ -1,0 +1,95 @@
+{
+  "openPositions": [
+    {
+      "id": 1767540445968,
+      "symbol": "FOLKSUSDT",
+      "side": "LONG",
+      "entryPrice": 4.141,
+      "stopLoss": 3.97,
+      "takeProfit": 4.19,
+      "leverage": 6,
+      "margin": 4,
+      "score": 7,
+      "openTime": "2026-01-04T15:27:25.968Z",
+      "status": "OPEN",
+      "realTrade": false
+    },
+    {
+      "id": 1767540505145,
+      "symbol": "UNIUSDT",
+      "side": "LONG",
+      "entryPrice": 5.94,
+      "stopLoss": 5.81,
+      "takeProfit": 6.01,
+      "leverage": 11,
+      "margin": 4,
+      "score": 6,
+      "openTime": "2026-01-04T15:28:25.145Z",
+      "status": "OPEN",
+      "realTrade": false
+    },
+    {
+      "id": 1767544806715,
+      "symbol": "FILUSDT",
+      "side": "LONG",
+      "entryPrice": 1.507,
+      "stopLoss": 1.47,
+      "takeProfit": 1.56,
+      "leverage": 10,
+      "margin": 4,
+      "score": 6,
+      "openTime": "2026-01-04T16:40:06.715Z",
+      "status": "OPEN",
+      "realTrade": false
+    }
+  ],
+  "tradeHistory": [
+    {
+      "id": 1767537343128,
+      "symbol": "1000000MOGUSDT",
+      "side": "LONG",
+      "entryPrice": 0.3482,
+      "stopLoss": 0.32,
+      "takeProfit": 0.39,
+      "leverage": 5,
+      "margin": 4,
+      "score": 6,
+      "openTime": "2026-01-04T14:35:43.128Z",
+      "status": "CLOSED",
+      "realTrade": false,
+      "closePrice": 0.3485,
+      "closeTime": "2026-01-04T14:35:55.384Z",
+      "pnl": 0.01723147616312274,
+      "pnlPercent": 0.08615738081561371,
+      "closeReason": "CLOSE_ALL"
+    },
+    {
+      "id": 1767540489117,
+      "symbol": "PUMPUSDT",
+      "side": "LONG",
+      "entryPrice": 0.002354,
+      "stopLoss": 0,
+      "takeProfit": 0,
+      "leverage": 8,
+      "margin": 4,
+      "score": 6,
+      "openTime": "2026-01-04T15:28:09.117Z",
+      "status": "CLOSED",
+      "realTrade": false,
+      "closePrice": 0.002367,
+      "closeTime": "2026-01-04T16:39:56.274Z",
+      "pnl": 0.1767204757858962,
+      "pnlPercent": 0.5522514868309256,
+      "closeReason": "MANUAL"
+    }
+  ],
+  "stats": {
+    "totalScans": 219,
+    "signalsFound": 6270,
+    "tradesOpened": 5,
+    "tradesClosed": 2,
+    "totalPnL": 0.19395195194901893
+  },
+  "lastScan": "2026-01-04T16:40:01.408Z",
+  "savedAt": "2026-01-04T16:40:06.716Z"
+}

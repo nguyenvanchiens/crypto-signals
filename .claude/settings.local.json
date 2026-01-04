@@ -16,7 +16,9 @@
       "Bash(tasklist:*)",
       "Bash(timeout /t 3 /nobreak)",
       "Bash(npm start:*)",
-      "Bash(node src/server.js:*)"
+      "Bash(node src/server.js:*)",
+      "Bash(node -c:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

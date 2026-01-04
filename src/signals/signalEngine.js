@@ -906,13 +906,25 @@ class SignalEngine {
         // SL đặt dưới support gần nhất (có buffer 0.3%)
         stopLoss = srLevels.nearestSupport * 0.997;
 
+        // QUAN TRỌNG: SL tối thiểu phải cách Entry ít nhất 1.5% để tránh bị quét
+        const minSLDistance = currentPrice * 0.015; // 1.5%
+        if (currentPrice - stopLoss < minSLDistance) {
+          stopLoss = currentPrice - minSLDistance;
+        }
+
         // TP dựa trên resistance hoặc R:R ratio
-        if (srLevels.nearestResistance) {
-          // TP = resistance gần nhất (trừ 0.2% buffer)
+        // QUAN TRỌNG: TP cho LONG phải CAO HƠN giá hiện tại
+        const slDistance = currentPrice - stopLoss;
+        if (srLevels.nearestResistance && srLevels.nearestResistance > currentPrice * 1.005) {
+          // TP = resistance gần nhất (trừ 0.2% buffer) - chỉ khi resistance cao hơn giá
           takeProfit = srLevels.nearestResistance * 0.998;
         } else {
-          // Nếu không có resistance, dùng R:R 1.5
-          const slDistance = currentPrice - stopLoss;
+          // Nếu không có resistance phù hợp, dùng R:R 1.5
+          takeProfit = currentPrice + (slDistance * 1.5);
+        }
+
+        // Double check: TP phải cao hơn Entry ít nhất 0.5%
+        if (takeProfit <= currentPrice * 1.005) {
           takeProfit = currentPrice + (slDistance * 1.5);
         }
 
@@ -950,14 +962,26 @@ class SignalEngine {
         // SL đặt trên resistance gần nhất (có buffer 0.3%)
         stopLoss = srLevels.nearestResistance * 1.003;
 
+        // QUAN TRỌNG: SL tối thiểu phải cách Entry ít nhất 1.5% để tránh bị quét
+        const minSLDistanceShort = currentPrice * 0.015; // 1.5%
+        if (stopLoss - currentPrice < minSLDistanceShort) {
+          stopLoss = currentPrice + minSLDistanceShort;
+        }
+
         // TP dựa trên support hoặc R:R ratio
-        if (srLevels.nearestSupport) {
-          // TP = support gần nhất (cộng 0.2% buffer)
+        // QUAN TRỌNG: TP cho SHORT phải THẤP HƠN giá hiện tại
+        const slDistanceShort = stopLoss - currentPrice;
+        if (srLevels.nearestSupport && srLevels.nearestSupport < currentPrice * 0.995) {
+          // TP = support gần nhất (cộng 0.2% buffer) - chỉ khi support thấp hơn giá
           takeProfit = srLevels.nearestSupport * 1.002;
         } else {
-          // Nếu không có support, dùng R:R 1.5
-          const slDistance = stopLoss - currentPrice;
-          takeProfit = currentPrice - (slDistance * 1.5);
+          // Nếu không có support phù hợp, dùng R:R 1.5
+          takeProfit = currentPrice - (slDistanceShort * 1.5);
+        }
+
+        // Double check: TP phải thấp hơn Entry ít nhất 0.5%
+        if (takeProfit >= currentPrice * 0.995) {
+          takeProfit = currentPrice - (slDistanceShort * 1.5);
         }
 
         reason = this.getShortReasons(analysis);

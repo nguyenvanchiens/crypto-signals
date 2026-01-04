@@ -11,9 +11,35 @@ const cron = require('node-cron');
 
 const BinanceService = require('./services/binanceService');
 const SignalEngine = require('./signals/signalEngine');
+const AutoTrader = require('./bot/autoTrader');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// ===================== AUTO TRADER BOT =====================
+const autoTrader = new AutoTrader({
+  interval: process.env.BOT_INTERVAL || '1h',
+  scanInterval: parseInt(process.env.BOT_SCAN_INTERVAL) || 60,
+  marginPerTrade: parseFloat(process.env.BOT_MARGIN_PER_TRADE) || 10,
+  maxOpenPositions: parseInt(process.env.BOT_MAX_POSITIONS) || 3,
+  minVolume: parseInt(process.env.BOT_MIN_VOLUME) || 10000000,
+  minScore: parseInt(process.env.BOT_MIN_SCORE) || 4,
+  testMode: process.env.BOT_TEST_MODE !== 'false'
+});
+
+// Init trading service nếu có API key
+if (process.env.BINANCE_API_KEY && process.env.BINANCE_SECRET_KEY) {
+  const useTestnet = process.env.USE_TESTNET === 'true';
+  const apiKey = useTestnet ? process.env.TESTNET_API_KEY : process.env.BINANCE_API_KEY;
+  const secretKey = useTestnet ? process.env.TESTNET_SECRET_KEY : process.env.BINANCE_SECRET_KEY;
+  autoTrader.init(apiKey, secretKey, useTestnet);
+  console.log(`[Bot] Trading service initialized (Testnet: ${useTestnet})`);
+}
+
+// Auto start bot nếu enabled
+if (process.env.BOT_ENABLED === 'true') {
+  autoTrader.start();
+}
 
 // Middleware
 app.use(cors());
@@ -354,6 +380,260 @@ app.get('/api/cache', (req, res) => {
     success: true,
     data: signalCache
   });
+});
+
+// ===================== BOT API ENDPOINTS =====================
+
+/**
+ * API: Lấy trạng thái bot
+ * GET /api/bot/status
+ */
+app.get('/api/bot/status', (req, res) => {
+  res.json({
+    success: true,
+    data: autoTrader.getStatus()
+  });
+});
+
+/**
+ * API: Bật bot
+ * POST /api/bot/start
+ */
+app.post('/api/bot/start', async (req, res) => {
+  try {
+    await autoTrader.start();
+    res.json({
+      success: true,
+      message: 'Bot started',
+      data: autoTrader.getStatus()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * API: Tắt bot
+ * POST /api/bot/stop
+ */
+app.post('/api/bot/stop', (req, res) => {
+  autoTrader.stop();
+  res.json({
+    success: true,
+    message: 'Bot stopped',
+    data: autoTrader.getStatus()
+  });
+});
+
+/**
+ * API: Cập nhật config bot
+ * POST /api/bot/config
+ */
+app.post('/api/bot/config', (req, res) => {
+  const newConfig = req.body;
+  autoTrader.updateConfig(newConfig);
+  res.json({
+    success: true,
+    message: 'Config updated',
+    data: autoTrader.getStatus()
+  });
+});
+
+/**
+ * API: Quét thủ công
+ * POST /api/bot/scan
+ */
+app.post('/api/bot/scan', async (req, res) => {
+  try {
+    await autoTrader.scan();
+    res.json({
+      success: true,
+      message: 'Scan completed',
+      data: autoTrader.getStatus()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * API: Đóng tất cả lệnh
+ * POST /api/bot/close-all
+ */
+app.post('/api/bot/close-all', async (req, res) => {
+  try {
+    const result = await autoTrader.closeAllTrades('CLOSE_ALL');
+
+    res.json({
+      success: true,
+      message: `Closed ${result.closedCount} trades`,
+      closedCount: result.closedCount,
+      totalPnL: result.totalPnL,
+      trades: result.trades
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * API: Đóng lệnh
+ * POST /api/bot/close/:tradeId
+ */
+app.post('/api/bot/close/:tradeId', async (req, res) => {
+  try {
+    const { tradeId } = req.params;
+    let { closePrice } = req.body;
+
+    // Tìm trade để lấy symbol
+    const openTrade = autoTrader.openPositions.find(p => p.id === parseInt(tradeId));
+    if (!openTrade) {
+      return res.status(404).json({
+        success: false,
+        error: 'Trade not found'
+      });
+    }
+
+    // Nếu không có closePrice, lấy giá hiện tại từ Binance
+    if (!closePrice) {
+      try {
+        const priceData = await binanceService.getFuturesPrice(openTrade.symbol);
+        closePrice = priceData.price;
+      } catch (e) {
+        return res.status(500).json({
+          success: false,
+          error: 'Cannot get current price: ' + e.message
+        });
+      }
+    }
+
+    const trade = await autoTrader.closeTrade(
+      parseInt(tradeId),
+      parseFloat(closePrice),
+      'MANUAL'
+    );
+
+    res.json({
+      success: true,
+      message: 'Trade closed',
+      trade: trade
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * API: Xóa tất cả dữ liệu bot
+ * POST /api/bot/clear
+ */
+app.post('/api/bot/clear', (req, res) => {
+  try {
+    // Reset stats
+    autoTrader.stats = {
+      totalScans: 0,
+      signalsFound: 0,
+      tradesOpened: 0,
+      tradesClosed: 0,
+      totalPnL: 0
+    };
+
+    // Clear positions and history
+    autoTrader.openPositions = [];
+    autoTrader.tradeHistory = [];
+    autoTrader.lastScan = null;
+
+    // Save empty data to file
+    autoTrader.saveData();
+
+    res.json({
+      success: true,
+      message: 'All bot data cleared'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * API: Cài đặt API keys
+ * POST /api/bot/set-keys
+ */
+app.post('/api/bot/set-keys', (req, res) => {
+  const { apiKey, secretKey, testnet = false } = req.body;
+
+  if (!apiKey || !secretKey) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing apiKey or secretKey'
+    });
+  }
+
+  autoTrader.init(apiKey, secretKey, testnet);
+  res.json({
+    success: true,
+    message: 'API keys configured'
+  });
+});
+
+/**
+ * API: Test kết nối API
+ * GET /api/bot/test-connection
+ */
+app.get('/api/bot/test-connection', async (req, res) => {
+  if (!autoTrader.tradingService) {
+    return res.json({
+      success: false,
+      error: 'Trading service not initialized. Please set API keys first.'
+    });
+  }
+
+  const result = await autoTrader.tradingService.testConnection();
+  res.json({
+    success: result.connected,
+    data: result
+  });
+});
+
+/**
+ * API: Lấy số dư tài khoản
+ * GET /api/bot/balance
+ */
+app.get('/api/bot/balance', async (req, res) => {
+  if (!autoTrader.tradingService) {
+    return res.json({
+      success: false,
+      error: 'Trading service not initialized'
+    });
+  }
+
+  try {
+    const balance = await autoTrader.tradingService.getBalance();
+    res.json({
+      success: true,
+      data: balance
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 // Serve frontend
